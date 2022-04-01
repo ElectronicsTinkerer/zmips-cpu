@@ -16,6 +16,34 @@ input clk, rst; // Active HIGH reset
 output d_wr, d_rd;
 
 // Opcodes (See ID stage for how bits [5:4] determine the FORMAT)
+//
+// Layout of FUNCT field (See ID stage for these definitions)
+// x x x x x x x
+// | | | | | | +-> 1 = write Z flag
+// | | | | | +---> 1 = write C flag
+// | | | | +-----> 1 = write N flag
+// | | | +-------> Unused
+// | | +---------> Unused
+// | +-----------> Unused
+//
+// Layout of BRANCH I-Format
+// +-----+-----+-----+------------------+
+// |  op |  rs |  rt |      SE_IMMD     |
+// +-----+-----+-----+------------------+
+//
+// op = 12h to branch on set flag
+// op = 13h to branch on clear flag
+//
+// rs for branches is split as follows:
+// x x x x x
+// | | | +-+-> 0 = Branch on Z
+// | | |       1 = Branch on C
+// | | |       2 = Branch on N
+// | | |       3 = RESERVED
+// | | +-----> Unused
+// | +-------> Unused
+// +---------> Unused
+
 // R-FORMAT
 localparam I_NOP   = 32'h00;
 localparam I_AND   = 32'h01;    // Bitwise AND rd = rs & rt
@@ -24,14 +52,15 @@ localparam I_EOR   = 32'h03;    // Bitwise XOR rd = rs ^ rt
 localparam I_SUB   = 32'h04;    // Subtract rd = rs - rt
 // localparam I_CMP   = 32'h05;    // Compare regs rs - rt
 localparam I_ADD   = 32'h06;    // Add rd = rs + rt
+localparam I_SLL   = 32'h08;    // Shift Locgical Left rd = rd << shamt
+localparam I_SRL   = 32'h0A;    // Shift Locgical Right rd = rd >>> shamt
+localparam I_SRA   = 32'h0B;    // Shift Arithmetic Right rd = rd >> shamt
 
 // I_FORMAT
 localparam I_SUBI  = 32'h10;    // Subtract signed immediate rt = rs - #se_immd
 localparam I_ADDI  = 32'h11;    // Add rt = rs + #se_immd
-localparam I_BNE   = 32'h12;    // Branch on rs != rt
-localparam I_BEQ   = 32'h13;    // Branch on rs == rt
-// localparam I_BCC   = 32'h14;    // Branch on C = 1'b0
-// localparam I_BCS   = 32'h15;    // Branch on C = 1'b1
+localparam I_BFC   = 32'h12;    // Branch on flag "F" clear (format: BFS F, label ; where F is Z, C, N)
+localparam I_BFS   = 32'h13;    // Branch on flag "F" set
 localparam I_LW    = 32'h16;    // Load rt with value at rs + #se_immd
 localparam I_SW    = 32'h17;    // Store rt to rs + #se_immd
 
@@ -49,6 +78,9 @@ wire hd_if_pc_wr;               // Set to enable updating of PC
 // Signals for FORWARDING UNIT
 wire [1:0] fw_ex_rs_src;        // Mux select for ALU "a" input
 wire [1:0] fw_ex_rt_src;        // Mux select for ALU "b" input
+wire fw_ex_z;                   // Mux select for Z flag (Between Z FF and ALU Z ouptut)
+wire fw_ex_c;                   // Mux select for C flag (Between C FF and ALU C ouptut)
+wire fw_ex_n;                   // Mux select for N flag (Between N FF and ALU N ouptut)
 
 // Signals for IF STAGE
 wire [31:0] pc_next_val;        // To be fed into the PC on the next NEGEDGE of CLK
@@ -83,6 +115,9 @@ reg id_ex_pipe_alusrc;          // 1 on SE IMMD, 0 on REG_1
 reg id_ex_pipe_memrd;           // 1 on read from mem
 reg id_ex_pipe_memwr;           // 1 on write to mem
 reg id_ex_pipe_wrreg;           // 1 on write to reg
+reg id_ex_pipe_wrzf;            // 1 to enable writing to Z flag
+reg id_ex_pipe_wrcf;            // 1 to enable writing to C flag
+reg id_ex_pipe_wrnf;            // 1 to enable writing to N flag
 
 
 // Signals for EX STAGE
@@ -90,8 +125,21 @@ wire [31:0] ex_alu_a;           // ALU "a" input value
 wire [31:0] ex_alu_b;           // ALU "b" input value
 wire [31:0] ex_alu_pre_b;       // ALU "b" input value before the ALUSrc mux
 wire [3:0] ex_alu_op;           // ALU internal operation code
+wire [31:0] ex_alu_rslt;        // ALU result
+wire ex_zf, ex_cf, ex_nf;       // Zero, Carry, Negative flags input lines
+wire [4:0] ex_wb_reg;           // Muxed reg to send to next stage for write-back
 
-reg [31:0] ex_mem_pipe_alu_rslt;    // ALU result
+                                // For instructions which affect the flags:
+reg flag_zero;                  // Zero flag (1 = previous operation was 0)
+reg flag_carry;                 // Carry flag (1 = previous op resulted in a carry)
+reg flag_negative;              // Negative flag (bit 31 of the previous ALU result)
+
+reg [31:0] ex_mem_pipe_alu_rslt;    // ALU result (Also used as address in a MEMory access op)
+reg [31:0] ex_mem_pipe_addr;    // Data to be written to memory in a SW operation
+reg [4:0] ex_mem_pipe_wb_reg;   // Reg to which to write back
+reg ex_mem_memrd;               // High on a memory read
+reg ex_mem_memwr;               // High on a memory write
+reg ex_mem_wrreg;               // High when the reg in ex_mem_pipe_wb_reg needs to be written
 
 // Signals for MEM STAGE
 
@@ -186,15 +234,21 @@ begin
         id_ex_pipe_memrd <= 1'b0;
         id_ex_pipe_memwr <= 1'b0; 
         id_ex_pipe_wrreg <= 1'b0;
+        id_ex_pipe_wrzf <= 1'b0;
+        id_ex_pipe_wrcf <= 1'b0;
+        id_ex_pipe_wrnf <= 1'b0;
     end
     else                            // Otherwise, we are good to go
     begin
-        id_ex_pipe_rfmt <= (ir_opcode[5:4] == 2'b00) ? 1'b1 : 1'b0;     // Set R-Format if R-Format
+        id_ex_pipe_rfmt <= (ir_opcode[5] == 1'b0) ? 1'b1 : 1'b0;     // Set R-Format if R-Format
         id_ex_pipe_branch <= (ir_opcode[5:4] == 2'b11) ? 1b'1 : 1'b0;   // Set branch flag if this is J-Format
         id_ex_pipe_alusrc <= (ir_opcode[5:4] == 2'b10) ? 1'b1 : 1'b0;   // Set ALU b source to SE_IMMD if I-Format
         id_ex_pipe_memrd <= (ir_opcode == I_LW) ? 1'b1 : 1'b0;          // Set mem read on LOAD instruction
         id_ex_pipe_memwr <= (ir_opcode == I_SW) ? 1'b1 : 1'b0;          // Set mem write on STORE instruction
-        id_ex_pipe_wrreg <= (ir_opcode[5:4] == 2'b00 || ir_opcode == I_LW) ? 1'b1 : 1'b0;   // Write back to reg
+        id_ex_pipe_wrreg <= (ir_opcode[5] == 1'b0 || ir_opcode == I_LW) ? 1'b1 : 1'b0;   // Write back to reg
+        id_ex_pipe_wrzf <= (ir_opcode[5] == 1'b0 && funct[0]) ? 1b'1 : 1'b0; // Only change Z flag for R-Format instructions
+        id_ex_pipe_wrcf <= (ir_opcode[5] == 1'b0 && funct[1]) ? 1b'1 : 1'b0; // Only change C flag for R-Format instructions
+        id_ex_pipe_wrnf <= (ir_opcode[5] == 1'b0 && funct[2]) ? 1b'1 : 1'b0; // Only change N flag for R-Format instructions
     end
 end
 
@@ -224,7 +278,42 @@ zmips_mux432 ALU_B_MUX(
 // Selects between reg/forwarded data and the SE IMMD data
 zmips_mux232 ALU_SRC_MUX(.a(ex_alu_pre_b), .b(id_ex_pipe_imm_se), .sel(id_ex_pipe_alusrc), .y(ex_alu_b));
 
-zmips_alu ALU0(.a(ex_alu_a), .b(ex_alu_b), .op(ex_alu_op), .y(), .zero()); // .cout is not connected!
+zmips_alu ALU0(.a(ex_alu_a), .b(ex_alu_b), .op(ex_alu_op), .y(ex_alu_rslt), .zero(ex_zf), .cout(ex_cf));
+
+// Handle negative flag input line
+assign ex_nf = ex_alu_rslt[31];
+
+// Not a pipeline reg, just state flags for the EX stage (and ID)
+always @(negedge clk)
+begin
+    // Only update flags when their ID/EX enable line is active
+    if (id_ex_pipe_wrzf == 1'b1)
+    begin
+        flag_zero <= ex_zf;
+    end
+    if (id_ex_pipe_wrcf == 1'b1)
+    begin
+        flag_carry <= ex_cf;
+    end
+    if (id_ex_pipe_wrnf == 1'b1)
+    begin
+        flag_negative <= ex_nf;
+    end
+end
+
+zmips_mux205 WR_REG_MUX(.a(id_ex_pipe_rt), .b(id_ex_pipe_rd), .sel(id_ex_pipe_rfmt), .y(ex_wb_reg));
+
+// Pipeline regs for EX/MEM stage
+always @(negedge clk)
+begin
+    ex_mem_pipe_alu_rslt <= ex_alu_rslt;    // Save ALU result for stage (to be used as the address in a MEMory access)
+    ex_mem_pipe_addr <= ex_alu_pre_b;       // Also the pre-immediate muxed B input (to be used as the data to write if doing a SW instructions)
+    ex_mem_pipe_wb_reg <= ex_wb_reg;        // Save the reg which is to be used for WB stage
+    ex_mem_memrd <= id_ex_pipe_memrd;
+    ex_mem_memwr <= id_ex_pipe_memwr;
+    ex_mem_wrreg <= id_ex_pipe_wrreg;
+end
+
 
 
 endmodule
