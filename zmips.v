@@ -42,8 +42,13 @@ localparam I_JAL   = 32'h1A;    // Jump to {PC[31:26], addr}, storing the curren
 
 
 // Signals for HAZARD DETECTION UNIT
-wire hd_flush_if_id;            // Set to clear the IR to be a NOP
-wire hd_flush_id_ex;            // Set to disable stages following ID (this particular cycle as it moves through)
+wire hd_if_id_flush;            // Set to clear the IR to be a NOP
+wire hd_id_ex_flush;            // Set to disable stages following ID (this particular cycle as it moves through)
+wire hd_if_pc_wr;               // Set to enable updating of PC
+
+// Signals for FORWARDING UNIT
+wire [1:0] fw_ex_rs_src;        // Mux select for ALU "a" input
+wire [1:0] fw_ex_rt_src;        // Mux select for ALU "b" input
 
 // Signals for IF STAGE
 wire [31:0] pc_next_val;        // To be fed into the PC on the next NEGEDGE of CLK
@@ -81,6 +86,12 @@ reg id_ex_pipe_wrreg;           // 1 on write to reg
 
 
 // Signals for EX STAGE
+wire [31:0] ex_alu_a;           // ALU "a" input value
+wire [31:0] ex_alu_b;           // ALU "b" input value
+wire [31:0] ex_alu_pre_b;       // ALU "b" input value before the ALUSrc mux
+wire [3:0] ex_alu_op;           // ALU internal operation code
+
+reg [31:0] ex_mem_pipe_alu_rslt;    // ALU result
 
 // Signals for MEM STAGE
 
@@ -97,7 +108,7 @@ begin
     begin
         pc <= 32'b0;
     end
-    else
+    else if (hd_if_pc_wr == 1'b1)
     begin
         pc <= pc_next_val;
     end
@@ -115,7 +126,7 @@ always @(negedge clk)
 begin
     if_id_pipe_pc <= pc_inc_val;
 
-    if (hd_flush_if_id)
+    if (hd_if_id_flush)
     begin
         if_id_pipe_ir <= I_NOP;
     end
@@ -167,7 +178,7 @@ begin
     id_ex_pipe_rd <= ir_rd;
     id_ex_pipe_imm_se <= ir_imm_se; // Pass along sign extended immediate
     
-    if (hd_flush_id_ex == 1'b1)     // If a hazard is detected, knock out the next stage
+    if (hd_id_ex_flush == 1'b1)     // If a hazard is detected, knock out the next stage
     begin
         id_ex_pipe_rfmt <= 1'b0;
         id_ex_pipe_branch <= 1'b0;
@@ -189,6 +200,31 @@ end
 
 // ----------------- EX STAGE -----------------
 
+// ALU "a" input mux
+zmips_mux432 ALU_A_MUX(
+        .a(id_ex_pipe_reg_0),
+        .b(wb_data),
+        .c(ex_mem_pipe_alu_rslt),
+        .d(32'bXX), // DEBUG
+        .sel(fw_ex_rs_src),
+        .y(ex_alu_a)
+    );
+
+// ALU "b" input mux
+zmips_mux432 ALU_B_MUX(
+        .a(id_ex_pipe_reg_1),
+        .b(wb_data),
+        .c(ex_mem_pipe_alu_rslt),
+        .d(32'bXX), // DEBUG
+        .sel(fw_ex_rt_src),
+        .y(ex_alu_pre_b)
+    );
+
+// ALUSrc mux for "b" input
+// Selects between reg/forwarded data and the SE IMMD data
+zmips_mux232 ALU_SRC_MUX(.a(ex_alu_pre_b), .b(id_ex_pipe_imm_se), .sel(id_ex_pipe_alusrc), .y(ex_alu_b));
+
+zmips_alu ALU0(.a(ex_alu_a), .b(ex_alu_b), .op(ex_alu_op), .y(), .zero()); // .cout is not connected!
 
 
 endmodule
