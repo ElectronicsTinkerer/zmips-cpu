@@ -8,10 +8,10 @@
 
 */
 
-module zmips(i_data, i_addr, d_data, d_addr, clk, d_wr, d_rd, rst);
+module zmips(i_data, i_addr, d_data_o, d_data_i, d_addr, clk, d_wr, d_rd, rst);
 input [31:0] i_data;
-output [31:0] i_addr, d_addr;
-inout [31:0] d_data;
+output [31:0] i_addr, d_addr, d_data_i;
+inout [31:0] d_data_o;
 input clk, rst; // Active HIGH reset
 output d_wr, d_rd;
 
@@ -135,17 +135,23 @@ reg flag_carry;                 // Carry flag (1 = previous op resulted in a car
 reg flag_negative;              // Negative flag (bit 31 of the previous ALU result)
 
 reg [31:0] ex_mem_pipe_alu_rslt;    // ALU result (Also used as address in a MEMory access op)
-reg [31:0] ex_mem_pipe_addr;    // Data to be written to memory in a SW operation
+reg [31:0] ex_mem_pipe_data;    // Data to be written to memory in a SW operation
 reg [4:0] ex_mem_pipe_wb_reg;   // Reg to which to write back
-reg ex_mem_memrd;               // High on a memory read
-reg ex_mem_memwr;               // High on a memory write
-reg ex_mem_wrreg;               // High when the reg in ex_mem_pipe_wb_reg needs to be written
+reg ex_mem_pipe_memrd;          // High on a memory read
+reg ex_mem_pipe_memwr;          // High on a memory write
+reg ex_mem_pipe_wrreg;          // High when the reg in ex_mem_pipe_wb_reg needs to be written
 
 // Signals for MEM STAGE
+reg [31:0] mem_wb_pipe_memd;    // Data from memory
+reg [31:0] mem_wb_pipe_alud;    // Data from ALU
+reg [4:0] mem_wb_pipe_wb_reg;   // Register to which to write back
+reg mem_wb_pipe_memrd;          // High when reading from memory
+reg mem_wb_pipe_wrreg;          // High when writing back to a reg
 
 // Signals for WB STAGE
-wire [4:0] wb_addr;
-wire [31:0] wb_data;
+wire [4:0] wb_addr;             // Register number to which to write back
+wire [31:0] wb_data;            // Data to write to a register
+wire wb_wr;                     // 1 = write, 0 = don't write
 
 
 // ----------------- IF STAGE -----------------
@@ -210,7 +216,7 @@ zmips_regfile RF0(
         .addr_1(ir_rt), 
         .wr_addr(wb_addr), 
         .wr_data(wb_data), 
-        .wr(????),  //////////////////////////////////////////////////////////////////////////////////// Finish after WB
+        .wr(wb_wr)),
         .clk(clk), 
         .data_0(d_reg_0), 
         .data_1(d_reg_1)
@@ -307,13 +313,41 @@ zmips_mux205 WR_REG_MUX(.a(id_ex_pipe_rt), .b(id_ex_pipe_rd), .sel(id_ex_pipe_rf
 always @(negedge clk)
 begin
     ex_mem_pipe_alu_rslt <= ex_alu_rslt;    // Save ALU result for stage (to be used as the address in a MEMory access)
-    ex_mem_pipe_addr <= ex_alu_pre_b;       // Also the pre-immediate muxed B input (to be used as the data to write if doing a SW instructions)
+    ex_mem_pipe_data <= ex_alu_pre_b;       // Also the pre-immediate muxed B input (to be used as the data to write if doing a SW instructions)
     ex_mem_pipe_wb_reg <= ex_wb_reg;        // Save the reg which is to be used for WB stage
-    ex_mem_memrd <= id_ex_pipe_memrd;
-    ex_mem_memwr <= id_ex_pipe_memwr;
-    ex_mem_wrreg <= id_ex_pipe_wrreg;
+    ex_mem_pipe_memrd <= id_ex_pipe_memrd;
+    ex_mem_pipe_memwr <= id_ex_pipe_memwr;
+    ex_mem_pipe_wrreg <= id_ex_pipe_wrreg;
 end
 
+
+// ----------------- MEM STAGE -----------------
+
+// Data memory interface
+assign d_data_o = ex_mem_pipe_data;
+assign d_addr = ex_mem_pipe_alu_rslt;
+assign d_wr = ex_mem_pipe_memwr;
+assign d_rd = ex_mem_pipe_memrd;
+
+// MEM/WB pipeline regs
+always @(negedge clk)
+begin
+    mem_wb_pipe_memd <= d_data_i;           // Data in from the data memory
+    mem_wb_pipe_alud <= ex_mem_pipe_alu_rslt;   // Data from ALU in EX stage
+    mem_wb_pipe_memrd <= ex_mem_pipe_memrd; // Reading from memory
+    mem_wb_pipe_wrreg <= ex_mem_pipe_wrreg; // Writing to a reg
+    mem_wb_pipe_wb_reg <= ex_mem_pipe_wb_reg;   // Reg to which to write back
+end
+
+
+// ----------------- WB STAGE -----------------
+
+// Select the data source to write back
+zmips_mux232 WB_MUX(.a(mem_wb_pipe_alud), .b(mem_wb_pipe_memd), .sel(mem_wb_pipe_memrd), .y(wb_data));
+
+assign wb_addr = mem_wb_pipe_wb_reg;
+
+assign wb_wr = mem_wb_pipe_wrreg;
 
 
 endmodule
