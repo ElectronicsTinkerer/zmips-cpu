@@ -43,6 +43,7 @@ localparam I_JAL   = 32'h1A;    // Jump to {PC[31:26], addr}, storing the curren
 
 // Signals for HAZARD DETECTION UNIT
 wire hd_flush_if_id;            // Set to clear the IR to be a NOP
+wire hd_flush_id_ex;            // Set to disable stages following ID (this particular cycle as it moves through)
 
 // Signals for IF STAGE
 wire [31:0] pc_next_val;        // To be fed into the PC on the next NEGEDGE of CLK
@@ -74,6 +75,9 @@ reg [31:0] id_ex_pipe_imm_se
 reg id_ex_pipe_rfmt;            // 1 on R-format instruction
 reg id_ex_pipe_branch;          // 1 on branch
 reg id_ex_pipe_alusrc;          // 1 on SE IMMD, 0 on REG_1
+reg id_ex_pipe_memrd;           // 1 on read from mem
+reg id_ex_pipe_memwr;           // 1 on write to mem
+reg id_ex_pipe_wrreg;           // 1 on write to reg
 
 
 // Signals for EX STAGE
@@ -162,10 +166,29 @@ begin
     id_ex_pipe_rt <= ir_rt;
     id_ex_pipe_rd <= ir_rd;
     id_ex_pipe_imm_se <= ir_imm_se; // Pass along sign extended immediate
-    id_ex_pipe_rfmt; <= (ir_opcode[5:4] == 2'b00) ? 1'b1 : 1'b0;  // Set R-Format if R-Format
-    id_ex_pipe_branch <= (ir_opcode[5:4] == 2'b11) ? 1b'1 : 1'b0; // Set branch flag if this is J-Format
-    id_ex_pipe_alusrc <= (ir_opcode[5:4] == 2'b10) ? 1'b1 : 1'b0; // Set ALU b source to SE_IMMD if I-Format
+    
+    if (hd_flush_id_ex == 1'b1)     // If a hazard is detected, knock out the next stage
+    begin
+        id_ex_pipe_rfmt <= 1'b0;
+        id_ex_pipe_branch <= 1'b0;
+        id_ex_pipe_alusrc <= 1'b0;
+        id_ex_pipe_memrd <= 1'b0;
+        id_ex_pipe_memwr <= 1'b0; 
+        id_ex_pipe_wrreg <= 1'b0;
+    end
+    else                            // Otherwise, we are good to go
+    begin
+        id_ex_pipe_rfmt <= (ir_opcode[5:4] == 2'b00) ? 1'b1 : 1'b0;     // Set R-Format if R-Format
+        id_ex_pipe_branch <= (ir_opcode[5:4] == 2'b11) ? 1b'1 : 1'b0;   // Set branch flag if this is J-Format
+        id_ex_pipe_alusrc <= (ir_opcode[5:4] == 2'b10) ? 1'b1 : 1'b0;   // Set ALU b source to SE_IMMD if I-Format
+        id_ex_pipe_memrd <= (ir_opcode == I_LW) ? 1'b1 : 1'b0;          // Set mem read on LOAD instruction
+        id_ex_pipe_memwr <= (ir_opcode == I_SW) ? 1'b1 : 1'b0;          // Set mem write on STORE instruction
+        id_ex_pipe_wrreg <= (ir_opcode[5:4] == 2'b00 || ir_opcode == I_LW) ? 1'b1 : 1'b0;   // Write back to reg
+    end
 end
+
+// ----------------- EX STAGE -----------------
+
 
 
 endmodule
