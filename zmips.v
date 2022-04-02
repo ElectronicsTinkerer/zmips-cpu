@@ -25,32 +25,79 @@ output d_wr, d_rd;
 
 // Opcodes (See ID stage for how bits [5:4] determine the FORMAT)
 //
+// Layout of an R-Format instruction
+// +------+-----+-----+-----+-----+------+
+// |  op  |  rs |  rt |  rd |shamt| func |
+// +------+-----+-----+-----+-----+------+
+// 31   26/25 21/20 16/15 11/10  6/5     0
+//
+// Registers:
+//   rs -> Source reg 1, can be shifted by setting appropiate bits in OP field
+//   rt -> Source reg 2
+//   rd -> Destination register of operation
+//         Note that this is only written to if the write back flag
+//         is set in the OP field
+// 
+// Layout of OP field (See CONTROL and ID stage for definitions)
+// x x x x x x
+// | | | | +-+-> 0 = No shift on ALU "A" input
+// | | | |       1 = Shift ALU "A" input left (logical) by shamt
+// | | | |       2 = Shift ALU "A" input right (logical) by shamt
+// | | | |       3 = Shift ALU "A" input right (arithmetic) by shamt
+// | | | +-----> 1 = Write back to reg rd, 0 = Don't save operation result
+// | | +-------> 0
+// | +---------> 0
+// +-----------> 0
+//
 // Layout of FUNCT field (See ID stage for these definitions)
-// x x x x x x x
-// | | | | | | +-> 1 = write Z flag
-// | | | | | +---> 1 = write C flag
-// | | | | +-----> 1 = write N flag
-// | | | +-------> ALUOp0
-// | | +---------> ALUOp1
-// | +-----------> ALUOp2
+// x x x x x x
+// | | | | | +-> 1 = update Z flag
+// | | | | +---> 1 = update C flag
+// | | | +-----> 1 = update N flag
+// | | +-------> ALUOp0 (See ALU for details)
+// | +---------> ALUOp1 (See ALU for details)
+// +-----------> ALUOp2 (See ALU for details)
 //
 // Layout of BRANCH I-Format
-// +-----+-----+-----+------------------+
-// |  op |  rs |  rt |      SE_IMMD     |
-// +-----+-----+-----+------------------+
+// +------+-----+-----+----------------+
+// |  op  |  rs |  rt |     SE_IMMD    |
+// +------+-----+-----+----------------+
+// 31   26/25 21/20 16/15              0
 //
-// op = 12h to branch on set flag
-// op = 13h to branch on clear flag
+// Layout of OP field (See CONTROL and ID stage for definitions)
+// x x x x x x
+// | | | | +-+-> 0 = No shift on ALU "A" input
+// | | | |       1 = Shift ALU "A" input left (logical) by shamt
+// | | | |       2 = Shift ALU "A" input right (logical) by shamt
+// | | | |       3 = Shift ALU "A" input right (arithmetic) by shamt
+// | | | +-----> 1 = Write back to reg rd, 0 = Don't save operation result
+// | | +-------> 1 = Branch on flag set, 0 = branch on flag clear
+// | +---------> 1 = Branch operation
+// +-----------> 0
 //
 // rs for branches is split as follows:
 // x x x x x
 // | | | +-+-> 0 = Branch on Z
 // | | |       1 = Branch on C
 // | | |       2 = Branch on N
-// | | |       3 = RESERVED
+// | | |       3 = Branch Always
 // | | +-----> Unused
 // | +-------> Unused
 // +---------> Unused
+//
+// rt is unused for branches
+//
+// Layout of JUMP J-Format
+// +-+-------------------------------+
+// |o|            address            |
+// +-+-------------------------------+
+// 31/30                             0
+//
+// Layout of OP field (See CONTROL and ID stage for definitions)
+// x x x x x x
+// | +-+-+-+-+-> Top 5 bits of jump address
+// +-----------> 1 = Jump operation
+//
 
 // R-FORMAT
 localparam I_NOP   = 6'h00;
@@ -282,9 +329,9 @@ begin
     end
     else                            // Otherwise, we are good to go
     begin
-        id_ex_pipe_rfmt <= (ir_opcode[5] == 1'b0) ? 1'b1 : 1'b0;     // Set R-Format if R-Format
+        id_ex_pipe_rfmt <= (ir_opcode[5:4] == 2'b00) ? 1'b1 : 1'b0;     // Set R-Format if R-Format
         // id_ex_pipe_branch <= (ir_opcode[5:4] == 2'b11) ? 1b'1 : 1'b0;   // Set branch flag if this is J-Format
-        id_ex_pipe_alusrc <= (ir_opcode[5:4] == 2'b10) ? 1'b1 : 1'b0;   // Set ALU b source to SE_IMMD if I-Format
+        id_ex_pipe_alusrc <= (ir_opcode[5:4] == 2'b01) ? 1'b1 : 1'b0;   // Set ALU b source to SE_IMMD if I-Format
         id_ex_pipe_memrd <= (ir_opcode == I_LW) ? 1'b1 : 1'b0;          // Set mem read on LOAD instruction
         id_ex_pipe_memwr <= (ir_opcode == I_SW) ? 1'b1 : 1'b0;          // Set mem write on STORE instruction
         id_ex_pipe_wrreg <= (ir_opcode[5] == 1'b0 || ir_opcode == I_LW) ? 1'b1 : 1'b0;   // Write back to reg
