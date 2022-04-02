@@ -1,23 +1,22 @@
 module zmips_alu(a, b, op, y, zero, cout);
 input [31:0] a, b;
-input [3:0] op;
+input [2:0] op;
 output [31:0] y;
 output zero, cout;
 
 // ALU Operations
 // Format:
-// x x x x
-// | | | +-> 0 = add (A + B) / 1 = sub (A-B)
-// | | +---> 0 = Normal operation (reserved)
-// +-+-----> 0 = ADD/SUB
-//           1 = AND
-//           2 = OR
-//           3 = EOR
+// x x x
+// | | +-> 0 = add (A + B) / 1 = sub (A-B)
+// +-+---> 0 = ADD/SUB
+//         1 = AND
+//         2 = OR
+//         3 = EOR
 localparam A_ADD = 6'h0;
 localparam A_SUB = 6'h1;
-localparam A_AND = 6'h4;
-localparam A_OR  = 6'h8;
-localparam A_EOR = 6'hC;
+localparam A_AND = 6'h2;
+localparam A_OR  = 6'h4;
+localparam A_EOR = 6'h6;
 
 wire [31:0] b_in;           // The B input to the adder
 wire [31:0] add_rslt;       // The result of the adder
@@ -28,7 +27,7 @@ wire [1:0] i_op;            // Internal OPeration category
 wire i_cin;
 wire i_cout;
 
-assign i_op = op[3:2];
+assign i_op = op[2:1];
 
 assign b_in = b ^ op[0];
 assign i_cin = op[0]
