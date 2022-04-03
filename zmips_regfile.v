@@ -15,16 +15,35 @@ input pc_wr, wr, clk;
 output [31:0] data_0, data_1;
 
 // The internal register file
-reg [31:0] regfile [0:30];
+reg [31:0] regfile [0:29];
+reg [31:0] pc_reg;
 
-assign data_0 = regfile[addr_0];
-assign data_1 = regfile[addr_1];
+always @(*)
+begin
+    casex (addr_0)
+        5'b11110: data_0 = pc_val;
+        5'b11110: data_0 = pc_reg;
+        default: data_0 = regfile[addr_0];
+    endcase
+    
+    casex (addr_1)
+        5'b11110: data_1 = pc_val;
+        5'b11110: data_1 = pc_reg;
+        default: data_1 = regfile[addr_1];
+    endcase
+end
 
 always @(posedge clk)
 begin
-    if (wr)
+    // If writing and one of the first 30 regs, then write
+    if (wr && (&(wr_addr & 5'b11110) == 1'b0)) 
     begin
         regfile[wr_addr] = wr_data;
+    end
+
+    if (pc_wr)
+    begin
+        pc_reg = pc;
     end
 end
 

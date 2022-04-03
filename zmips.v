@@ -11,19 +11,24 @@
 // TODO: 
 // * Hazard detection
 // * Forwarding unit
-//   -> Specifically the flags
-// * ALU OP decoding
-// * shifting
-// * branching
-// * jumping
+//   -> ~~Specifically the flags
+// * ~~ALU OP decoding
+// * ~~shifting
+// * ~~branching
+// * ~~jumping (J-Format)
+// * ~~jumping (R-format)
+// * ~~Load immediate se (to reg 0)
 /*
- Move barrel shifter into the ALU, allowing for carry to be sent through.
- Use the no shift operation as a "passthrough" allowing for immediate loading 
- of data via opcode format 1. - This will need to use 3 bits as the ALUop.
- Set bit 2 high for shift, low for normal ALU ops. This allows for the lower 
- two bits to be used to select the specific operation. (Also not including bit 0, 
- which is used for the adder/subtractor)
- Need to add shamt input to ALU
+ ~~Move barrel shifter into the ALU, allowing for carry to be sent through.
+ ~~Use the no shift operation as a "passthrough" allowing for immediate loading 
+ ~~of data via opcode format 1. - This will need to use 3 bits as the ALUop.
+ ~~Set bit 2 high for shift, low for normal ALU ops. This allows for the lower 
+ ~~two bits to be used to select the specific operation. (Also not including bit 0, 
+ ~~which is used for the adder/subtractor)
+ ~~Need to add shamt input to ALU
+ ~~Add a mux in so that the C input to the ALU can be set for CMP operation
+ ~~Reg 31 is PC direct
+ ~~Reg 30 is PC shadow reg (save location for a jump J-format)
 */
 
 
@@ -53,10 +58,8 @@ output d_wr, d_rd;
 // 
 // Layout of OP field (See CONTROL and ID stage for definitions)
 // 5 4 3 2 1 0
-// | | | | +-+-> 0 = No shift on ALU "A" input
-// | | | |       1 = Shift ALU "A" input left (logical) by shamt
-// | | | |       2 = Shift ALU "A" input right (logical) by shamt
-// | | | |       3 = Shift ALU "A" input right (arithmetic) by shamt
+// | | | | | +-> ALUOp3 (See ALU for details)
+// | | | | +---> Resereved
 // | | | +-----> 1 = Write back to reg rd, 0 = Don't save operation result
 // | | +-------> 0 = "Normal operation" / 1 = Load/store (the above bit determines
 // | |               the operation -> 1 = load / 0 = store)
@@ -162,6 +165,7 @@ reg hw_reg_conflict;            // High when rt(ID/EX) == rs(IF/ID) or rt(ID/EX)
     // EXTERNAL
 reg [1:0] fw_ex_rs_src;         // Mux select for ALU "a" input
 reg [1:0] fw_ex_rt_src;         // Mux select for ALU "b" input
+reg [1:0] fw_id_jump_rs;        // Mux select for R-format jump rs
 reg fw_ex_z;                    // Mux select for Z flag (Between Z FF (0) and ALU Z ouptut (1))
 reg fw_ex_c;                    // Mux select for C flag (Between C FF (0) and ALU C ouptut (1))
 reg fw_ex_n;                    // Mux select for N flag (Between N FF (0) and ALU N ouptut (1))
@@ -188,6 +192,8 @@ wire [31:0] pc_id_temp_branch_val;   // Value of the PC if a branch were to be t
 wire [31:0] pc_id_branch_val;   // Value to assign to PC after taking into account whether to take the branch
 wire [31:0] pc_id_val;          // For when the ID stage must modify the PC (branch, jump)
 wire [31:0] ir_addr_sh;         // Shifted immediate address for Jump & Link instruction
+wire [31:0] id_pc_alu_mem;      // Muxed bus from MEM ALU out or memory read
+wire [31:0] id_pc_reg_val;      // Value of the register to load the PC with
 wire id_rfmt;                   // High when instruction is R-format or I-format/R-type
 wire id_ifmt;                   // High when instruction is I-format
 wire id_jfmt;                   // High when instruction is J-format
@@ -195,6 +201,8 @@ wire id_do_branch;              // High when a branch should be taken
 wire id_zf;                     // Z flag for branch logic (forwarded)
 wire id_cf;                     // C flag for branch logic (forwarded)
 wire id_nf;                     // N flag for branch logic (forwarded)
+wire id_r_jump;                 // High when bits 5..0 are all high
+wire id_immd_load;              // High when instruction is an immediate se load
 
 wire [5:0] ir_r_op;             // Opcode fields
 wire [3:0] ir_i_op;
@@ -211,7 +219,7 @@ wire [1:0] ir_cc;
 reg [31:0] id_ex_pipe_reg_0, id_ex_pipe_reg_1;  // Outputs from reg file
 reg [4:0] id_ex_pipe_rs, id_ex_pipe_rt, id_ex_pipe_rd;
 reg [31:0] id_ex_pipe_immd_se
-reg [1:0] id_ex_pipe_shop;      // Shift operation type
+reg id_ex_pipe_shop;            // Shift type operation
 reg id_ex_pipe_alusrc;          // 1 on SE IMMD, 0 on REG_1
 reg id_ex_pipe_memrd;           // 1 on read from mem
 reg id_ex_pipe_memwr;           // 1 on write to mem
@@ -225,15 +233,16 @@ reg id_ex_pipe_wrnf;            // 1 to enable writing to N flag
 
 // Signals for EX STAGE
 wire [31:0] ex_alu_a;           // ALU "a" input value
-wire [31:0] ex_alu_pre_a;       // ALU "a" input value before the barrel shifter
 wire [31:0] ex_alu_b;           // ALU "b" input value
-wire [31:0] ex_alu_pre_b;       // ALU "b" input value before the ALUSrc mux
-wire [2:0] ex_alu_op;           // ALU internal operation code
+wire [31:0] ex_alu_pre_1;       // ALU "a" input value before the ALUSrc mux
+wire [3:0] ex_alu_op;           // ALU internal operation code
 wire [31:0] ex_alu_rslt;        // ALU result
 wire ex_zf, ex_cf, ex_nf;       // Zero, Carry, Negative flags input lines
 wire [4:0] ex_wb_reg;           // Muxed reg to send to next stage for write-back
 wire [5:0] ex_funct;            // Function code
 wire [4:0] ex_shamt;            // Barrel shifter amount
+wire ex_alu_cin;                // CIN input to the ALU. Set for CMP instruction, otherwise
+                                // it represents the value of the flag_carry.
 
                                 // For instructions which affect the flags:
 reg flag_zero;                  // Zero flag (1 = previous operation was 0)
@@ -341,7 +350,7 @@ end
 zmips_mux232 MUX_PC_BRANCH(.a(if_id_pipe_pc), .b(pc_id_temp_branch), .sel(id_do_branch), .y(pc_id_branch_val));
 
 // Shift immediate address
-assign ir_addr_sh = {ir_addr, 2'b00};
+assign ir_addr_sh = {ir_addr[29:0], 2'b00};
 
 // Determine opcode data layout
 always @(*)
@@ -357,13 +366,32 @@ begin
     endcase
 end
 
-// Tell the IF stage to increment or use the value generated in the mux below
-assign pc_src_sel = ~id_rfmt;
+// If the format is I-branch or J-Format or (R-format and all funct bits are set)
+// then the PC ill be updated with the output of tbe MUX_PC_ID mux
+assign id_r_jump = &ir_funct;
+assign pc_src_sel = ~id_rfmt | id_r_jump;
+
+zmips_mux232 MUX_PC_ALUMEM(
+        .a(ex_mem_pipe_alu_rslt),
+        .b(d_data_i),
+        .sel(ex_mem_pipe_memrd),
+        .y(id_pc_alu_mem)
+    );
+
+// Forwarding of the jump destination source reg for an R-Format jump
+zmips_mux432 MUX_PC_REG(
+        .a(d_reg_0),            // Direct from reg
+        .b(ex_alu_rslt),        // From ALU output (EX stage)
+        .c(id_pc_alu_mem),      // From MEM stage (memory or alu result)
+        .d(wb_data),            // Data from wb stage
+        .sel(fw_id_jump_rs),
+        .y(id_pc_reg_val)
+    );
 
 // Final mux to decide what gets fed back to IF stage
 zmips_mux432 MUX_PC_ID(
-        .a(d_reg_0),            // rs (R-format)
-        .b(d_reg_0),            // rs (I-format, R-type)
+        .a(id_pc_reg_val),      // rs (R-format)
+        .b(32'hx),              // DEBUG (Should never be loaded into the PC)
         .c(pc_id_branch_val),   // Immediate sign-extended relative (I-format)
         .d(ir_addr_sh),         // Address from instruction (J-format)
         .sel(ir_j_op),          // Top 2 bits of opcode field determine source
@@ -380,10 +408,12 @@ zmips_regfile RF0(
         .clk(clk), 
         .data_0(d_reg_0), 
         .data_1(d_reg_1),
-        .pc_val(pc),            // New PC, not the ole one which is in the IF/ID pipeline reg
+        .pc_val(pc),            // New PC, not the old one which is in the IF/ID pipeline reg
         .pc_wr(id_jfmt)         // Write to PC shadow reg when doing a JL instruction
     );
 
+// For immediate load operations, set the rd to 0
+assign id_immd_load = id_rfmt & ir_i_op[2];
 
 // ID/EX connection pipeline register(s)
 always @(negedge clk)
@@ -391,10 +421,10 @@ begin
     id_ex_pipe_reg_0 <= d_reg_0;        // Pass along reg file outputs
     id_ex_pipe_reg_1 <= d_reg_1;
     id_ex_pipe_rs <= ir_rs;             // Pass along which regs are in use
-    id_ex_pipe_rt <= ir_rt;
-    id_ex_pipe_rd <= ir_rd;
+    id_ex_pipe_rt <= ir_rt;             // rt is needed for forwarding
+    id_ex_pipe_rd <= ir_rd & id_immd_load; // Zero rd on immediate se load
     id_ex_pipe_immd_se <= ir_imm_se;    // Pass along sign extended immediate
-    id_ex_pipe_shop <= ir_opcode[1:0];  // Pass along amount to shift ALU A input
+    id_ex_pipe_shop <= ir_r_op[0];      // Pass along upper bit of ALUOp
     
     if (hd_id_ex_flush == 1'b1 || ~id_rfmt) // If a hazard (or branch/jump) is detected, knock out the next stage
     begin
@@ -407,8 +437,8 @@ begin
         id_ex_pipe_wrnf <= 1'b0;
     end
     else                                    // Otherwise, we are good to go
-    begin
-        id_ex_pipe_alusrc <= id_rfmt & ir_i_op[2];      // Set ALU b source to SE_IMMD if I-Format R-Type
+    begin   
+        id_ex_pipe_alusrc <= id_immd_load;              // Set ALU a source to SE_IMMD if I-Format
         id_ex_pipe_memrd <= ir_r_op[3] & ir_r_op[2];    // Set mem read on LOAD instruction
         id_ex_pipe_memwr <= ir_r_op[3] & ~ir_r_op[2];   // Set mem write on STORE instruction
         id_ex_pipe_wrreg <= id_rfmt & ir_r_op[2];       // Write back to reg
@@ -422,7 +452,7 @@ end
 
 assign ex_funct = id_ex_pipe_immd_se[5:0];
 assign ex_shamt = id_ex_pipe_immd_se[10:6];
-assign ex_alu_op = ex_funct[5:3];
+assign ex_alu_op = {id_ex_pipe_shop, ex_funct[5:3] & ~id_ex_pipe_alusrc}; // Pass through on immd se load
 
 // ALU "a" input mux
 zmips_mux432 ALU_A_MUX(
@@ -434,7 +464,9 @@ zmips_mux432 ALU_A_MUX(
         .y(ex_alu_pre_a)
     );
 
-zmips_barrel_shift BARREL_SFT(.a(ex_alu_pre_a), .shift(ex_shamt), .op(id_ex_pipe_shop), .y(ex_alu_a));
+// ALUSrc mux for "a" input
+// Selects between reg/forwarded data and the SE IMMD data
+zmips_mux232 ALU_SRC_MUX(.a(ex_alu_pre_a), .b(id_ex_pipe_immd_se), .sel(id_ex_pipe_alusrc), .y(ex_alu_a));
 
 // ALU "b" input mux
 zmips_mux432 ALU_B_MUX(
@@ -443,14 +475,24 @@ zmips_mux432 ALU_B_MUX(
         .c(ex_mem_pipe_alu_rslt),
         .d(32'bXX), // DEBUG
         .sel(fw_ex_rt_src),
-        .y(ex_alu_pre_b)
+        .y(ex_alu_b)
     );
 
-// ALUSrc mux for "b" input
-// Selects between reg/forwarded data and the SE IMMD data
-zmips_mux232 ALU_SRC_MUX(.a(ex_alu_pre_b), .b(id_ex_pipe_immd_se), .sel(id_ex_pipe_alusrc), .y(ex_alu_b));
+// Handle CIN to ALU since CMP needs it set to perform the correct subtraction
+// (CIN) is an inverted borrow)
+// Since CMP does not write back, this will set CIN to 1
+assign ex_alu_cin = (~id_ex_pipe_wrreg) | flag_carry;
 
-zmips_alu ALU0(.a(ex_alu_a), .b(ex_alu_b), .op(ex_alu_op), .y(ex_alu_rslt), .zero(ex_zf), .cout(ex_cf));
+zmips_alu ALU0(
+        .a(ex_alu_a),
+        .b(ex_alu_b),
+        .op(ex_alu_op),
+        .y(ex_alu_rslt),
+        .shamt(ex_shamt),
+        .cin(ex_alu_cin),
+        .zero(ex_zf),
+        .cout(ex_cf)
+    );
 
 // Handle negative flag input line
 assign ex_nf = ex_alu_rslt[31];
@@ -472,8 +514,6 @@ begin
         flag_negative <= ex_nf;
     end
 end
-
-zmips_mux205 WR_REG_MUX(.a(id_ex_pipe_rt), .b(id_ex_pipe_rd), .sel(id_ex_pipe_rfmt), .y(ex_wb_reg));
 
 // Pipeline regs for EX/MEM stage
 always @(negedge clk)
@@ -529,27 +569,34 @@ assign wb_wr = mem_wb_pipe_wrreg;
 always @(*)
 begin
     hw_reg_conflict = 1'b0;
-    if (id_ex_pipe_memrd == 1'b1 && ((id_ex_pipe_rt == if_id_pipe_rs) || (id_ex_pipe_rt == if_id_pipe_rt))
+    if (id_ex_pipe_memrd == 1'b1 && ((id_ex_pipe_rd == if_id_pipe_rs) || (id_ex_pipe_rd == if_id_pipe_rt))
     begin
         hw_reg_conflict = 1'b1;
     end
+
+     // Check for R-format jump register dependencies
+    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_memrd == 1'b1 && (id_ex_pipe_rd == if_id_pipe_rs))
+    begin
+        hw_reg_conflict = 1'b1;
+        //stall
+    end
+
 end
 
 // Signal pipeline stages
 assign hd_id_ex_flush = hw_reg_conflict;
 assign hd_if_pc_wr = ~hw_reg_conflict;  // Only update PC when there is not a register conflict
-assign hd_if_id_flush = ~id_rfmt;       // Flush when a branch or jump is in IR
+assign hd_if_id_flush = ~id_rfmt;       // NOP the IF stage when a branch or jump is in ID stage (stall on every jump or branch 1 cycle)
 
 
 // ----------------- FORWARDING CONTROL -----------------
 
 
-// wire [1:0] fw_ex_rs_src;        // Mux select for ALU "a" input
-// wire [1:0] fw_ex_rt_src;        // Mux select for ALU "b" input
-// wire fw_ex_z;                   // Mux select for Z flag (Between Z FF and ALU Z ouptut)
-// wire fw_ex_c;                   // Mux select for C flag (Between C FF and ALU C ouptut)
-// wire fw_ex_n;                   // Mux select for N flag (Between N FF and ALU N ouptut)
-
+// Forward the flags if the previous instruction (the one currently in EX
+// will be modifing the relevant flag)
+assign fw_ex_z = id_ex_pipe_wrzf;
+assign fw_ex_c = id_ex_pipe_wrcf;
+assign fw_ex_n = id_ex_pipe_wrnf;
 
 // Check for forwarding hazards
 always @(*)
@@ -557,6 +604,7 @@ begin
     fw_ex_rs_src = 2'b00;           // Default to just reading directly from the reg file
     fw_ex_rt_src = 2'b00;
     fw_mem_ldsw = 1'b0;             // Default: don't forward memory data read in the last cycle to memory stage
+    fw_id_jump_rs = 2'b00;
 
     // Check for forwarding of EX rs
     // EX hazard (forward from previous ALU result)
@@ -587,6 +635,21 @@ begin
     begin
         fw_mem_ldsw = 1'b1;
     end
+
+    // Check for R-format jump register dependencies
+    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (id_ex_pipe_rd == if_id_pipe_rs))
+    begin
+        fw_id_jump_rs = 2'b01; // ALU result
+    end
+    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (ex_mem_pipe_wb_reg == if_id_pipe_rs))
+    begin
+        fw_id_jump_rs = 2'b10; // Prev ALU result
+    end
+    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (mem_wb_pipe_wb_reg == if_pipe_rs))
+    begin
+        fw_id_jump_rs = 2'b11; // Write back result
+    end
+
 end
 
 endmodule
