@@ -339,9 +339,9 @@ always @(*)
 begin
     id_do_branch = 1'b0;
     case (ir_cc)
-    2'b00: id_do_branch = id_zf;
-    2'b01: id_do_branch = id_cf;
-    2'b10: id_do_branch = id_nf;
+    2'b00: id_do_branch = id_zf ~^ ir_i_op[1];
+    2'b01: id_do_branch = id_cf ~^ ir_i_op[1];
+    2'b10: id_do_branch = id_nf ~^ ir_i_op[1];
     2'b11: id_do_branch = 1'b1;
     endcase
 end
@@ -367,7 +367,7 @@ begin
 end
 
 // If the format is I-branch or J-Format or (R-format and all funct bits are set)
-// then the PC ill be updated with the output of tbe MUX_PC_ID mux
+// then the PC will be updated with the output of tbe MUX_PC_ID mux
 assign id_r_jump = &ir_funct;
 assign pc_src_sel = ~id_rfmt | id_r_jump;
 
@@ -519,7 +519,7 @@ end
 always @(negedge clk)
 begin
     ex_mem_pipe_alu_rslt <= ex_alu_rslt;    // Save ALU result for stage (to be used as the address in a MEMory access)
-    ex_mem_pipe_data <= ex_alu_pre_b;       // Also the pre-immediate muxed B input (to be used as the data to write if doing a SW instructions)
+    ex_mem_pipe_data <= ex_alu_b;           // Also the pre-immediate muxed B input (to be used as the data to write if doing a SW instructions)
     ex_mem_pipe_wb_reg <= ex_wb_reg;        // Save the reg which is to be used for WB stage
     ex_mem_pipe_memrd <= id_ex_pipe_memrd;
     ex_mem_pipe_memwr <= id_ex_pipe_memwr;
