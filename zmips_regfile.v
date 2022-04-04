@@ -12,7 +12,7 @@ module zmips_regfile(addr_0, addr_1, pc_val, pc_wr, wr_addr, wr_data, wr, clk, d
 input [4:0] addr_0, addr_1, wr_addr;
 input [31:0] wr_data, pc_val;
 input pc_wr, wr, clk;
-output [31:0] data_0, data_1;
+output reg [31:0] data_0, data_1;
 
 // The internal register file
 reg [31:0] regfile [0:29];
@@ -43,7 +43,7 @@ begin
 
     if (pc_wr)
     begin
-        pc_reg = pc;
+        pc_reg = pc_val;
     end
 end
 

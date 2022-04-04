@@ -58,7 +58,7 @@ assign zero = ~|y;
 
 // -------------- GROUP 0 ----------------
 assign b_in = b ^ op[0];
-assign i_cin = op[0]
+assign i_cin = op[0];
 assign {i_cout, add_rslt} = a + b_in + cin;    // Eventually replace this with a CSA or similar
 assign and_rslt = a & b_in;
 assign or_rslt = a | b_in;
