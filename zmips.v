@@ -371,7 +371,7 @@ end
 
 // If the format is I-branch or J-Format or (R-format and all funct bits are set)
 // then the PC will be updated with the output of tbe MUX_PC_ID mux
-assign id_r_jump = (&ir_funct) & (~id_rfmt);
+assign id_r_jump = (&ir_funct) & (!id_rfmt);
 assign pc_src_sel = id_r_jump;
 
 zmips_mux232 MUX_PC_ALUMEM(
@@ -425,7 +425,7 @@ begin
     id_ex_pipe_reg_1 <= d_reg_1;
     id_ex_pipe_rs <= ir_rs;             // Pass along which regs are in use
     id_ex_pipe_rt <= ir_rt;             // rt is needed for forwarding
-    id_ex_pipe_rd <= ir_rd & id_immd_load; // Zero rd on immediate se load
+    id_ex_pipe_rd <= ir_rd & !id_immd_load; // Zero rd on immediate se load
     id_ex_pipe_immd_se <= ir_immd_se;   // Pass along sign extended immediate
     id_ex_pipe_shop <= ir_r_op[0];      // Pass along upper bit of ALUOp
     
@@ -443,7 +443,7 @@ begin
     begin   
         id_ex_pipe_alusrc <= id_immd_load;              // Set ALU a source to SE_IMMD if I-Format
         id_ex_pipe_memrd <= ir_r_op[3] & ir_r_op[2];    // Set mem read on LOAD instruction
-        id_ex_pipe_memwr <= ir_r_op[3] & ~ir_r_op[2];   // Set mem write on STORE instruction
+        id_ex_pipe_memwr <= ir_r_op[3] & !ir_r_op[2];   // Set mem write on STORE instruction
         id_ex_pipe_wrreg <= id_rfmt & ir_r_op[2];       // Write back to reg
         id_ex_pipe_wrzf <= id_rfmt & ir_funct[0];       // Only change Z flag for R-Type instructions
         id_ex_pipe_wrcf <= id_rfmt & ir_funct[1];       // Only change C flag for R-Type instructions
@@ -455,7 +455,7 @@ end
 
 assign ex_funct = id_ex_pipe_immd_se[5:0];
 assign ex_shamt = id_ex_pipe_immd_se[10:6];
-assign ex_alu_op = {id_ex_pipe_shop, ex_funct[5:3] & ~id_ex_pipe_alusrc}; // Pass through on immd se load
+assign ex_alu_op = {id_ex_pipe_shop, ex_funct[5:3] & {3{!id_ex_pipe_alusrc}}}; // Pass through on immd se load
 
 // ALU "a" input mux
 zmips_mux432 ALU_A_MUX(
