@@ -19,8 +19,8 @@ reg [31:0] d_mem[0:4095];
 zmips UUT_ZPU0(i_data, i_addr, d_data_o, d_data_i, d_addr, clk, d_wr, d_rd, rst);
 
 // Implement RAM
-assign i_data = i_mem[i_addr];
-assign d_data_i = d_mem[d_addr];
+assign i_data = i_mem[i_addr >> 2];
+assign d_data_i = d_mem[d_addr >> 2];
 
 always @(negedge clk)
 begin
