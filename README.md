@@ -18,7 +18,7 @@ See `zmips.v`
 
 ### ADD rd, rs, rt [, flags]
 Name: Add
-Description: rd = rs + rt
+Description: rd = rs + rt + C
 ```
 000100_sssss_ttttt_ddddd_xxxxx_000zcn
 ```
@@ -58,25 +58,32 @@ Description: rd = rs ^ rt
 000100_sssss_ttttt_ddddd_xxxxx_110zcn
 ```
 
-### SLL rd, rs, rt [, flags]
+### SLL rd, rs [, flags]
 Name: Shift Left Logical
 Description: rd = rs << hhhhh
 ```
 000101_sssss_xxxxx_ddddd_hhhhh_010zcn
 ```
 
-### SRL rd, rs, rt [, flags]
+### SRL rd, rs [, flags]
 Name: Shift Right Logical
 Description: rd = rs >> hhhhh
 ```
 000101_sssss_xxxxx_ddddd_hhhhh_110zcn
 ```
 
-### SRA rd, rs, rt [, flags]
+### SRA rd, rs [, flags]
 Name: Shift Right Arithmetic
 Description: rd = rs >>> hhhhh [keeps sign]
 ```
 000101_sssss_xxxxx_ddddd_hhhhh_100zcn
+```
+
+### MOV rd, rs [, flags]
+Name: MOVe (copy)
+Description: rd = rs
+```
+000101_sssss_xxxxx_ddddd_xxxxx_000zcn
 ```
 
 ### JMP rs
@@ -97,7 +104,7 @@ Description: rd = data_memory[rs]
 Name: Store Word
 Description: data_memory[rs] = rt
 ```
-001101_sssss_xxxxx_ddddd_xxxxx_000000
+001001_sssss_ttttt_xxxxx_xxxxx_000000
 ```
 
 ### LI #se_immd
