@@ -136,3 +136,10 @@ Description:
 ```
 11_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 ```
+
+### FFL flags
+Name: Force FLags
+Description: zf = z, cf = c, nf = n
+```
+000111_xxxxx_xxxxx_xxxxx_xxxxx_000zcn
+```

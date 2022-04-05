@@ -59,7 +59,7 @@ output d_wr, d_rd;
 // Layout of OP field (See CONTROL and ID stage for definitions)
 // 5 4 3 2 1 0
 // | | | | | +-> ALUOp3 (See ALU for details)
-// | | | | +---> Resereved
+// | | | | +---> 1 = Force flags to ZCN bits in funct / 0 = ZCN set as result of OP
 // | | | +-----> 1 = Write back to reg rd, 0 = Don't save operation result
 // | | +-------> 0 = "Normal operation" / 1 = Load/store (the above bit determines
 // | |               the operation -> 1 = load / 0 = store)
@@ -233,7 +233,7 @@ reg id_ex_pipe_wrreg;           // 1 on write to reg
 reg id_ex_pipe_wrzf;            // 1 to enable writing to Z flag
 reg id_ex_pipe_wrcf;            // 1 to enable writing to C flag
 reg id_ex_pipe_wrnf;            // 1 to enable writing to N flag
-
+reg id_ex_pipe_forcef;          // 1 to enable forcing of ZCN flags to the ZCN bits of the opcode
 
 // Signals for EX STAGE
 wire [31:0] ex_alu_a;           // ALU "a" input value
@@ -241,7 +241,8 @@ wire [31:0] ex_alu_b;           // ALU "b" input value
 wire [31:0] ex_alu_pre_a;       // ALU "a" input value before the ALUSrc mux
 wire [3:0] ex_alu_op;           // ALU internal operation code
 wire [31:0] ex_alu_rslt;        // ALU result
-wire ex_zf, ex_cf, ex_nf;       // Zero, Carry, Negative flags input lines
+wire ex_zf_alu, ex_cf_alu, ex_nf_alu;   // Zero, Carry, Negative flags output from ALU
+wire ex_zf, ex_cf, ex_nf;       // Zero, Carry, Negative flags input lines to the flag FFs
 wire [5:0] ex_funct;            // Function code
 wire [4:0] ex_shamt;            // Barrel shifter amount
 wire ex_alu_cin;                // CIN input to the ALU. Set for CMP instruction, otherwise
@@ -448,6 +449,7 @@ begin
         id_ex_pipe_wrzf <= id_rfmt & ir_funct[0];       // Only change Z flag for R-Type instructions
         id_ex_pipe_wrcf <= id_rfmt & ir_funct[1];       // Only change C flag for R-Type instructions
         id_ex_pipe_wrnf <= id_rfmt & ir_funct[2];       // Only change N flag for R-Type instructions
+        id_ex_pipe_forcef <= id_rfmt & ir_r_op[1];      // Only allow forcing of flags in R-format instruction
     end
 end
 
@@ -493,12 +495,17 @@ zmips_alu ALU0(
         .y(ex_alu_rslt),
         .shamt(ex_shamt),
         .cin(ex_alu_cin),
-        .zero(ex_zf),
-        .cout(ex_cf)
+        .zero(ex_zf_alu),
+        .cout(ex_cf_alu)
     );
 
 // Handle negative flag input line
-assign ex_nf = ex_alu_rslt[31];
+assign ex_nf_alu = ex_alu_rslt[31];
+
+// If instruction is forcing the flag states, use those instead of the ALU result
+assign ex_zf = (id_ex_pipe_forcef == 1'b1) ? id_ex_pipe_wrzf : ex_zf_alu; 
+assign ex_cf = (id_ex_pipe_forcef == 1'b1) ? id_ex_pipe_wrcf : ex_cf_alu; 
+assign ex_nf = (id_ex_pipe_forcef == 1'b1) ? id_ex_pipe_wrnf : ex_nf_alu; 
 
 // Not a pipeline reg, just state flags for the EX stage (and ID)
 always @(negedge clk)
@@ -597,9 +604,9 @@ assign hd_if_id_flush = ~id_rfmt;       // NOP the IF stage when a branch or jum
 
 // Forward the flags if the previous instruction (the one currently in EX
 // will be modifing the relevant flag)
-assign fw_ex_z = id_ex_pipe_wrzf;
-assign fw_ex_c = id_ex_pipe_wrcf;
-assign fw_ex_n = id_ex_pipe_wrnf;
+assign fw_ex_z = id_ex_pipe_wrzf | id_ex_pipe_forcef;
+assign fw_ex_c = id_ex_pipe_wrcf | id_ex_pipe_forcef;
+assign fw_ex_n = id_ex_pipe_wrnf | id_ex_pipe_forcef;
 
 // Check for forwarding hazards
 always @(*)
