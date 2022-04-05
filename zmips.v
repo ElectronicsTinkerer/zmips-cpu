@@ -372,7 +372,7 @@ end
 // If the format is I-branch or J-Format or (R-format and all funct bits are set)
 // then the PC will be updated with the output of tbe MUX_PC_ID mux
 assign id_r_jump = (&ir_funct) & (!id_rfmt);
-assign pc_src_sel = id_r_jump;
+assign pc_src_sel = id_r_jump | id_jfmt;
 
 zmips_mux232 MUX_PC_ALUMEM(
         .a(ex_mem_pipe_alu_rslt),
