@@ -205,7 +205,7 @@ reg id_do_branch;               // High when a branch should be taken
 wire id_zf;                     // Z flag for branch logic (forwarded)
 wire id_cf;                     // C flag for branch logic (forwarded)
 wire id_nf;                     // N flag for branch logic (forwarded)
-wire id_r_jump;                 // High when bits 5..0 are all high
+wire id_r_jump;                 // High when bits 5..0 are all high and R-format (00)
 wire id_immd_load;              // High when instruction is an immediate se load
 
 wire [5:0] ir_r_op;             // Opcode fields
@@ -371,8 +371,8 @@ end
 
 // If the format is I-branch or J-Format or (R-format and all funct bits are set)
 // then the PC will be updated with the output of tbe MUX_PC_ID mux
-assign id_r_jump = &ir_funct;
-assign pc_src_sel = ~id_rfmt | id_r_jump;
+assign id_r_jump = (&ir_funct) & (~id_rfmt);
+assign pc_src_sel = id_r_jump;
 
 zmips_mux232 MUX_PC_ALUMEM(
         .a(ex_mem_pipe_alu_rslt),
