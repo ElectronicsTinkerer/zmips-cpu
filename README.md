@@ -104,7 +104,7 @@ Description: data_memory[rs] = rt
 Name: Load Immediate
 Description: r0 = {6{immd[25]}, immd}
 ```
-0101xx_iiiiiiiiiiiiiiiiiiiiiiiiii
+010101_iiiiiiiiiiiiiiiiiiiiiiiiii
 ```
 
 ### BFC flag, label
