@@ -166,9 +166,9 @@ reg hw_reg_conflict;            // High when rt(ID/EX) == rs(IF/ID) or rt(ID/EX)
 reg [1:0] fw_ex_rs_src;         // Mux select for ALU "a" input
 reg [1:0] fw_ex_rt_src;         // Mux select for ALU "b" input
 reg [1:0] fw_id_jump_rs;        // Mux select for R-format jump rs
-reg fw_ex_z;                    // Mux select for Z flag (Between Z FF (0) and ALU Z ouptut (1))
-reg fw_ex_c;                    // Mux select for C flag (Between C FF (0) and ALU C ouptut (1))
-reg fw_ex_n;                    // Mux select for N flag (Between N FF (0) and ALU N ouptut (1))
+wire fw_ex_z;                   // Mux select for Z flag (Between Z FF (0) and ALU Z ouptut (1))
+wire fw_ex_c;                   // Mux select for C flag (Between C FF (0) and ALU C ouptut (1))
+wire fw_ex_n;                   // Mux select for N flag (Between N FF (0) and ALU N ouptut (1))
 reg fw_mem_ldsw;                // Mux select for consecutive mem load/store operation (WB->MEM)
 
     // INTERNAL
@@ -194,10 +194,10 @@ wire [31:0] pc_id_val;          // For when the ID stage must modify the PC (bra
 wire [31:0] ir_addr_sh;         // Shifted immediate address for Jump & Link instruction
 wire [31:0] id_pc_alu_mem;      // Muxed bus from MEM ALU out or memory read
 wire [31:0] id_pc_reg_val;      // Value of the register to load the PC with
-wire id_rfmt;                   // High when instruction is R-format or I-format/R-type
-wire id_ifmt;                   // High when instruction is I-format
-wire id_jfmt;                   // High when instruction is J-format
-wire id_do_branch;              // High when a branch should be taken
+reg id_rfmt;                   // High when instruction is R-format or I-format/R-type
+reg id_ifmt;                   // High when instruction is I-format
+reg id_jfmt;                   // High when instruction is J-format
+reg id_do_branch;              // High when a branch should be taken
 wire id_zf;                     // Z flag for branch logic (forwarded)
 wire id_cf;                     // C flag for branch logic (forwarded)
 wire id_nf;                     // N flag for branch logic (forwarded)
@@ -212,13 +212,13 @@ wire [4:0] ir_rt;
 wire [4:0] ir_rd;
 wire [4:0] ir_shamt;
 wire [5:0] ir_funct;
-wire [25:0] ir_imm;
+wire [25:0] ir_immd;
 wire [29:0] ir_addr;
 wire [1:0] ir_cc;
 
 reg [31:0] id_ex_pipe_reg_0, id_ex_pipe_reg_1;  // Outputs from reg file
 reg [4:0] id_ex_pipe_rs, id_ex_pipe_rt, id_ex_pipe_rd;
-reg [31:0] id_ex_pipe_immd_se
+reg [31:0] id_ex_pipe_immd_se;
 reg id_ex_pipe_shop;            // Shift type operation
 reg id_ex_pipe_alusrc;          // 1 on SE IMMD, 0 on REG_1
 reg id_ex_pipe_memrd;           // 1 on read from mem
@@ -323,7 +323,7 @@ assign ir_immd = if_id_pipe_ir[25:0];
 assign ir_addr = if_id_pipe_ir[29:0];
 
 // Sign extend
-assign ir_immd_se = {6{ir_immd[25]}, ir_immd};
+assign ir_immd_se = {{6{ir_immd[25]}}, ir_immd};
 
 // Shift immediate
 assign ir_imm_se_sh = {ir_imm_se, 2'b00};
@@ -404,7 +404,7 @@ zmips_regfile RF0(
         .addr_1(ir_rt), 
         .wr_addr(wb_addr), 
         .wr_data(wb_data), 
-        .wr(wb_wr)),
+        .wr(wb_wr),
         .clk(clk), 
         .data_0(d_reg_0), 
         .data_1(d_reg_1),
@@ -442,9 +442,9 @@ begin
         id_ex_pipe_memrd <= ir_r_op[3] & ir_r_op[2];    // Set mem read on LOAD instruction
         id_ex_pipe_memwr <= ir_r_op[3] & ~ir_r_op[2];   // Set mem write on STORE instruction
         id_ex_pipe_wrreg <= id_rfmt & ir_r_op[2];       // Write back to reg
-        id_ex_pipe_wrzf <= id_rfmt & funct[0];          // Only change Z flag for R-Type instructions
-        id_ex_pipe_wrcf <= id_rfmt & funct[1];          // Only change C flag for R-Type instructions
-        id_ex_pipe_wrnf <= id_rfmt & funct[2];          // Only change N flag for R-Type instructions
+        id_ex_pipe_wrzf <= id_rfmt & ir_funct[0];       // Only change Z flag for R-Type instructions
+        id_ex_pipe_wrcf <= id_rfmt & ir_funct[1];       // Only change C flag for R-Type instructions
+        id_ex_pipe_wrnf <= id_rfmt & ir_funct[2];       // Only change N flag for R-Type instructions
     end
 end
 
@@ -569,13 +569,13 @@ assign wb_wr = mem_wb_pipe_wrreg;
 always @(*)
 begin
     hw_reg_conflict = 1'b0;
-    if (id_ex_pipe_memrd == 1'b1 && ((id_ex_pipe_rd == if_id_pipe_rs) || (id_ex_pipe_rd == if_id_pipe_rt))
+    if (id_ex_pipe_memrd == 1'b1 && ((id_ex_pipe_rd == ir_rs) || (id_ex_pipe_rd == ir_rt)))
     begin
         hw_reg_conflict = 1'b1;
     end
 
      // Check for R-format jump register dependencies
-    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_memrd == 1'b1 && (id_ex_pipe_rd == if_id_pipe_rs))
+    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_memrd == 1'b1 && (id_ex_pipe_rd == ir_rs))
     begin
         hw_reg_conflict = 1'b1;
         //stall
@@ -637,15 +637,15 @@ begin
     end
 
     // Check for R-format jump register dependencies
-    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (id_ex_pipe_rd == if_id_pipe_rs))
+    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (id_ex_pipe_rd == ir_rs))
     begin
         fw_id_jump_rs = 2'b01; // ALU result
     end
-    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (ex_mem_pipe_wb_reg == if_id_pipe_rs))
+    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (ex_mem_pipe_wb_reg == ir_rs))
     begin
         fw_id_jump_rs = 2'b10; // Prev ALU result
     end
-    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (mem_wb_pipe_wb_reg == if_pipe_rs))
+    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (mem_wb_pipe_wb_reg == ir_rs))
     begin
         fw_id_jump_rs = 2'b11; // Write back result
     end
