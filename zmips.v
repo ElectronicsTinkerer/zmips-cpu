@@ -234,7 +234,7 @@ reg id_ex_pipe_wrnf;            // 1 to enable writing to N flag
 // Signals for EX STAGE
 wire [31:0] ex_alu_a;           // ALU "a" input value
 wire [31:0] ex_alu_b;           // ALU "b" input value
-wire [31:0] ex_alu_pre_1;       // ALU "a" input value before the ALUSrc mux
+wire [31:0] ex_alu_pre_a;       // ALU "a" input value before the ALUSrc mux
 wire [3:0] ex_alu_op;           // ALU internal operation code
 wire [31:0] ex_alu_rslt;        // ALU result
 wire ex_zf, ex_cf, ex_nf;       // Zero, Carry, Negative flags input lines
@@ -329,7 +329,7 @@ assign ir_immd_se = {{6{ir_immd[25]}}, ir_immd};
 assign ir_imm_se_sh = {ir_imm_se, 2'b00};
 
 // Calculate branch address
-zmips_n_adder #(.W(32)) ADD_PC_ID(.a(if_id_pipe_pc), .b(ir_imm_se_sh), .sum(pc_id_temp_branch));
+zmips_n_adder #(.W(32)) ADD_PC_ID(.a(if_id_pipe_pc), .b(ir_imm_se_sh), .sum(pc_id_temp_branch_val));
 
 // Deal with flag forwarding for branch decision
 assign id_zf = fw_ex_z ? ex_zf : flag_zero;
@@ -347,7 +347,7 @@ begin
 end
 
 // Finally output the branch decision
-zmips_mux232 MUX_PC_BRANCH(.a(if_id_pipe_pc), .b(pc_id_temp_branch), .sel(id_do_branch), .y(pc_id_branch_val));
+zmips_mux232 MUX_PC_BRANCH(.a(if_id_pipe_pc), .b(pc_id_temp_branch_val), .sel(id_do_branch), .y(pc_id_branch_val));
 
 // Shift immediate address
 assign ir_addr_sh = {ir_addr[29:0], 2'b00};
