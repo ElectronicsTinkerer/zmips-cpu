@@ -95,6 +95,10 @@ output d_wr, d_rd;
 //           2 = I-format branch
 //           3 = J-format jump (Jump absolute)
 //
+// cc for load immediate is:
+// 1 0
+// +-+-> 01 - Required
+//
 // cc for branches is split as follows:
 // 1 0
 // +-+-> 0 = Branch on Z
@@ -186,18 +190,18 @@ reg [31:0] if_id_pipe_ir;       // Result from reading instruction memory
 
 // Signals for ID STAGE
 wire [31:0] d_reg_0, d_reg_1;
-wire [31:0] ir_imm_se;          // Sign extension
-wire [31:0] ir_imm_se_sh;       // Shifted sign extend (left, 2)
+wire [31:0] ir_immd_se;         // Sign extension
+wire [31:0] ir_immd_se_sh;      // Shifted sign extend (left, 2)
 wire [31:0] pc_id_temp_branch_val;   // Value of the PC if a branch were to be taken
 wire [31:0] pc_id_branch_val;   // Value to assign to PC after taking into account whether to take the branch
 wire [31:0] pc_id_val;          // For when the ID stage must modify the PC (branch, jump)
 wire [31:0] ir_addr_sh;         // Shifted immediate address for Jump & Link instruction
 wire [31:0] id_pc_alu_mem;      // Muxed bus from MEM ALU out or memory read
 wire [31:0] id_pc_reg_val;      // Value of the register to load the PC with
-reg id_rfmt;                   // High when instruction is R-format or I-format/R-type
-reg id_ifmt;                   // High when instruction is I-format
-reg id_jfmt;                   // High when instruction is J-format
-reg id_do_branch;              // High when a branch should be taken
+reg id_rfmt;                    // High when instruction is R-format or I-format/R-type
+reg id_ifmt;                    // High when instruction is I-format
+reg id_jfmt;                    // High when instruction is J-format
+reg id_do_branch;               // High when a branch should be taken
 wire id_zf;                     // Z flag for branch logic (forwarded)
 wire id_cf;                     // C flag for branch logic (forwarded)
 wire id_nf;                     // N flag for branch logic (forwarded)
@@ -238,7 +242,6 @@ wire [31:0] ex_alu_pre_a;       // ALU "a" input value before the ALUSrc mux
 wire [3:0] ex_alu_op;           // ALU internal operation code
 wire [31:0] ex_alu_rslt;        // ALU result
 wire ex_zf, ex_cf, ex_nf;       // Zero, Carry, Negative flags input lines
-wire [4:0] ex_wb_reg;           // Muxed reg to send to next stage for write-back
 wire [5:0] ex_funct;            // Function code
 wire [4:0] ex_shamt;            // Barrel shifter amount
 wire ex_alu_cin;                // CIN input to the ALU. Set for CMP instruction, otherwise
@@ -326,10 +329,10 @@ assign ir_addr = if_id_pipe_ir[29:0];
 assign ir_immd_se = {{6{ir_immd[25]}}, ir_immd};
 
 // Shift immediate
-assign ir_imm_se_sh = {ir_imm_se, 2'b00};
+assign ir_immd_se_sh = {ir_immd_se, 2'b00};
 
 // Calculate branch address
-zmips_n_adder #(.W(32)) ADD_PC_ID(.a(if_id_pipe_pc), .b(ir_imm_se_sh), .sum(pc_id_temp_branch_val));
+zmips_n_adder #(.W(32)) ADD_PC_ID(.a(if_id_pipe_pc), .b(ir_immd_se_sh), .sum(pc_id_temp_branch_val));
 
 // Deal with flag forwarding for branch decision
 assign id_zf = fw_ex_z ? ex_zf : flag_zero;
@@ -423,7 +426,7 @@ begin
     id_ex_pipe_rs <= ir_rs;             // Pass along which regs are in use
     id_ex_pipe_rt <= ir_rt;             // rt is needed for forwarding
     id_ex_pipe_rd <= ir_rd & id_immd_load; // Zero rd on immediate se load
-    id_ex_pipe_immd_se <= ir_imm_se;    // Pass along sign extended immediate
+    id_ex_pipe_immd_se <= ir_immd_se;   // Pass along sign extended immediate
     id_ex_pipe_shop <= ir_r_op[0];      // Pass along upper bit of ALUOp
     
     if (hd_id_ex_flush == 1'b1 || ~id_rfmt) // If a hazard (or branch/jump) is detected, knock out the next stage
@@ -520,7 +523,7 @@ always @(negedge clk)
 begin
     ex_mem_pipe_alu_rslt <= ex_alu_rslt;    // Save ALU result for stage (to be used as the address in a MEMory access)
     ex_mem_pipe_data <= ex_alu_b;           // Also the pre-immediate muxed B input (to be used as the data to write if doing a SW instructions)
-    ex_mem_pipe_wb_reg <= ex_wb_reg;        // Save the reg which is to be used for WB stage
+    ex_mem_pipe_wb_reg <= id_ex_pipe_rd;    // Save the reg which is to be used for WB stage
     ex_mem_pipe_memrd <= id_ex_pipe_memrd;
     ex_mem_pipe_memwr <= id_ex_pipe_memwr;
     ex_mem_pipe_wrreg <= id_ex_pipe_wrreg;
