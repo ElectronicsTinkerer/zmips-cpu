@@ -373,7 +373,7 @@ end
 // If the format is I-branch or J-Format or (R-format and all funct bits are set)
 // then the PC will be updated with the output of tbe MUX_PC_ID mux
 assign id_r_jump = (&ir_funct) & (!id_rfmt);
-assign pc_src_sel = id_r_jump | id_jfmt;
+assign pc_src_sel = id_r_jump | id_jfmt | id_ifmt;
 
 zmips_mux232 MUX_PC_ALUMEM(
         .a(ex_mem_pipe_alu_rslt),
@@ -426,11 +426,11 @@ begin
     id_ex_pipe_reg_1 <= d_reg_1;
     id_ex_pipe_rs <= ir_rs;             // Pass along which regs are in use
     id_ex_pipe_rt <= ir_rt;             // rt is needed for forwarding
-    id_ex_pipe_rd <= ir_rd & !id_immd_load; // Zero rd on immediate se load
+    id_ex_pipe_rd <= ir_rd & {5{!id_immd_load}}; // Zero rd on immediate se load
     id_ex_pipe_immd_se <= ir_immd_se;   // Pass along sign extended immediate
     id_ex_pipe_shop <= ir_r_op[0];      // Pass along upper bit of ALUOp
     
-    if (hd_id_ex_flush == 1'b1 || ~id_rfmt) // If a hazard (or branch/jump) is detected, knock out the next stage
+    if (hd_id_ex_flush == 1'b1 || id_rfmt == 1'b0) // If a hazard (or branch/jump) is detected, knock out the next stage
     begin
         id_ex_pipe_alusrc <= 1'b0;
         id_ex_pipe_memrd <= 1'b0;
@@ -446,9 +446,9 @@ begin
         id_ex_pipe_memrd <= ir_r_op[3] & ir_r_op[2];    // Set mem read on LOAD instruction
         id_ex_pipe_memwr <= ir_r_op[3] & !ir_r_op[2];   // Set mem write on STORE instruction
         id_ex_pipe_wrreg <= id_rfmt & ir_r_op[2];       // Write back to reg
-        id_ex_pipe_wrzf <= id_rfmt & ir_funct[0];       // Only change Z flag for R-Type instructions
+        id_ex_pipe_wrzf <= id_rfmt & ir_funct[2];       // Only change Z flag for R-Type instructions
         id_ex_pipe_wrcf <= id_rfmt & ir_funct[1];       // Only change C flag for R-Type instructions
-        id_ex_pipe_wrnf <= id_rfmt & ir_funct[2];       // Only change N flag for R-Type instructions
+        id_ex_pipe_wrnf <= id_rfmt & ir_funct[0];       // Only change N flag for R-Type instructions
         id_ex_pipe_forcef <= id_rfmt & ir_r_op[1];      // Only allow forcing of flags in R-format instruction
     end
 end
@@ -486,7 +486,7 @@ zmips_mux432 ALU_B_MUX(
 // Handle CIN to ALU since CMP needs it set to perform the correct subtraction
 // (CIN) is an inverted borrow)
 // Since CMP does not write back, this will set CIN to 1
-assign ex_alu_cin = (~id_ex_pipe_wrreg) | flag_carry;
+assign ex_alu_cin = (!id_ex_pipe_wrreg) | flag_carry;
 
 zmips_alu ALU0(
         .a(ex_alu_a),

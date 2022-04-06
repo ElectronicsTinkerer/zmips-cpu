@@ -30,9 +30,9 @@ Description: rd = rs - rt + C
 000100_sssss_ttttt_ddddd_xxxxx_001zcn
 ```
 
-### CMP rd, rs, rt [, flags]
+### CMP rs, rt [, flags]
 Name: Compare
-Description: [flags] = rs - rt + C
+Description: [flags] = rs - rt (ignores carry flag)
 ```
 000000_sssss_ttttt_ddddd_xxxxx_001zcn
 ```
@@ -116,14 +116,14 @@ Description: r0 = {6{immd[25]}, immd}
 
 ### BFC flag, label
 Name: Branch relative on flag clear
-Description: pc = pc + {6{immd[25]}, immd}
+Description: pc = pc + {4{immd[25]}, immd, 2'b00}
 ```
 1000ff_iiiiiiiiiiiiiiiiiiiiiiiiii
 ```
 
 ### BFS flag, label
 Name: Branch relative on flag set
-Description: pc = pc + {6{immd[25]}, immd}
+Description: pc = pc + {4{immd[25]}, immd, 2'b00}
 ```
 1010ff_iiiiiiiiiiiiiiiiiiiiiiiiii
 ```
