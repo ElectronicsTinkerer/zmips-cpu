@@ -141,5 +141,5 @@ Description:
 Name: Force FLags
 Description: zf = z, cf = c, nf = n
 ```
-000111_xxxxx_xxxxx_xxxxx_xxxxx_000zcn
+000011_xxxxx_xxxxx_xxxxx_xxxxx_000zcn
 ```

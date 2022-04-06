@@ -48,7 +48,6 @@ wire [31:0] g0_y;           // Result from Group 0 operations
 wire [31:0] g1_y;           // Result from Group 1 operations
 wire [1:0] i_op;            // Internal OPeration category
 wire i_group;               // Operation group identifier
-wire i_cin;
 wire i_cout;
 wire g0_cout, g1_cout;      // Carry out signals from each group
 
@@ -57,9 +56,8 @@ assign i_group = op[3];
 assign zero = ~|y;
 
 // -------------- GROUP 0 ----------------
-assign b_in = b ^ op[0];
-assign i_cin = op[0];
-assign {i_cout, add_rslt} = a + b_in + cin;    // Eventually replace this with a CSA or similar
+assign b_in = b ^ {32{op[0]}};
+assign {i_cout, add_rslt} = a + b_in + {31'b0, cin};    // Eventually replace this with a CSA or similar
 assign and_rslt = a & b_in;
 assign or_rslt = a | b_in;
 assign eor_rslt = a ^ b_in;
