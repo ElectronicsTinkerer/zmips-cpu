@@ -511,15 +511,15 @@ assign ex_nf = (id_ex_pipe_forcef == 1'b1) ? id_ex_pipe_wrnf : ex_nf_alu;
 always @(negedge clk)
 begin
     // Only update flags when their ID/EX enable line is active
-    if (id_ex_pipe_wrzf == 1'b1)
+    if (id_ex_pipe_wrzf == 1'b1 || id_ex_pipe_forcef == 1'b1)
     begin
         flag_zero <= ex_zf;
     end
-    if (id_ex_pipe_wrcf == 1'b1)
+    if (id_ex_pipe_wrcf == 1'b1 || id_ex_pipe_forcef == 1'b1)
     begin
         flag_carry <= ex_cf;
     end
-    if (id_ex_pipe_wrnf == 1'b1)
+    if (id_ex_pipe_wrnf == 1'b1 || id_ex_pipe_forcef == 1'b1)
     begin
         flag_negative <= ex_nf;
     end
