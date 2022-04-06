@@ -21,13 +21,13 @@ reg [31:0] pc_reg;
 always @(*)
 begin
     casex (addr_0)
-        5'b11110: data_0 = pc_val;
+        5'b11111: data_0 = pc_val;
         5'b11110: data_0 = pc_reg;
         default: data_0 = regfile[addr_0];
     endcase
     
     casex (addr_1)
-        5'b11110: data_1 = pc_val;
+        5'b11111: data_1 = pc_val;
         5'b11110: data_1 = pc_reg;
         default: data_1 = regfile[addr_1];
     endcase
