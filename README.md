@@ -16,6 +16,13 @@ See `zmips.v`
 * rt = source register "B"
 * flags = Z, C, N - Optional, determine what status flags each operation affects
 
+### NOP
+Name: Add
+Description: rd = rs + rt + C
+```
+000100_sssss_ttttt_ddddd_xxxxx_000zcn
+```
+
 ### ADD rd, rs, rt [, flags]
 Name: Add
 Description: rd = rs + rt + C
