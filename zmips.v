@@ -68,9 +68,9 @@ output d_wr, d_rd;
 //
 // Layout of FUNCT field (See ID stage for these definitions)
 // 5 4 3 2 1 0
-// | | | | | +-> 1 = update Z flag
+// | | | | | +-> 1 = update N flag
 // | | | | +---> 1 = update C flag
-// | | | +-----> 1 = update N flag
+// | | | +-----> 1 = update Z flag
 // | | +-------> ALUOp0 (See ALU for details)
 // | +---------> ALUOp1 (See ALU for details)
 // +-----------> ALUOp2 (See ALU for details)

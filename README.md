@@ -1,6 +1,6 @@
 # ZMIPS (Zach's MIPS) CPU
 
-Despite the MIPS name, the architecture gradually changed away from MIPS to some combination of ARM, MIPS, 6502, and that RISC CPU I made last semester for another class. The original datapath and forwarding logic is based on that described in the famous *Computer Organization and Design* by Patterson/Hennessy. Looking back, I really should have called it the "ZIPS" CPU...
+Despite the MIPS name, the architecture gradually changed away from MIPS to some combination of ARM, MIPS, 6502, and that RISC CPU I made last semester for another class. The original datapath and forwarding logic is based on that described in the famous *Computer Organization and Design* by Patterson/Hennessy. It's pronounced "ZIPS" (with a silent 'm' ;)
 
 ## Instruction layout
  
