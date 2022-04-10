@@ -1,9 +1,20 @@
 
-from configparser import MAX_INTERPOLATION_DEPTH
+import re
 import sys
 import traceback
 from colorama import Fore
 from enum import Enum
+
+# Column to place listing source in output
+LISTING_COMMENT_COL = 42
+
+class ListingLine:
+    def __init__(self, src, pc, fbin="", rbin="", nocode=False):
+        self.src = src   # Source line
+        self.pc = pc     # Program Counter location of the instruction
+        self.fbin = fbin # Formatted binary
+        self.rbin = rbin # Raw binary
+        self.nocode = nocode # True on lines without an instruction (comments, labels)
 
 # Flags
 FLAG_BITS = {"Z":4,"C":2,"N":1}
@@ -139,8 +150,6 @@ if __name__ == "__main__":
             line = line.strip()
             src.append(line)
 
-    print(src)
-
     pc = 0
     lables = {}
 
@@ -156,15 +165,13 @@ if __name__ == "__main__":
         else:
             pc += 1
 
-    listing = ""
-    binary = ""
+    listing:ListingLine = []
     line_num = 0
-    pc = -1
+    pc = 0
 
     for line in src:
 
         line_num += 1
-        pc += 1
 
         line = line.strip()
             
@@ -173,7 +180,7 @@ if __name__ == "__main__":
 
         # Ignore comments and labels
         if line.startswith("//") or line.startswith(":") or line.startswith(";"):
-            listing += f"                       // {line}\n"
+            listing.append(ListingLine(line, pc, nocode=True))
             continue
 
         subline = line
@@ -206,7 +213,6 @@ if __name__ == "__main__":
 
         if op.mne_type == MneType.NOP:
             pass
-            # listing += line
         elif op.mne_type == MneType.FLAG:
             try:
                 for c in args[0]:
@@ -310,4 +316,40 @@ if __name__ == "__main__":
                 pmsg(ERROR, f"Expected value", line_num)
 
         opbin = op2bin(op)
-        print(opbin, ' '*(40-len(opbin)), "--", line)
+        listing.append(ListingLine(
+            line,
+            pc,
+            f"{opbin}{' '*(40-len(opbin))}",
+            re.sub('_', '', opbin) # Remove '_'s from the line so it is just binary
+        ))
+
+        pc += 1
+
+        
+
+
+    mif_output = ""
+    mif_output += f"DEPTH = {pc}; -- Memory size in words\n"
+    mif_output += f"WIDTH = 32; -- Data width in bits\n"
+    mif_output += f"ADDRESS_RADIX = HEX;\n"
+    mif_output += f"DATA_RADIX = BIN;\n"
+    mif_output += f"CONTENT\n"
+    mif_output += f"BEGIN\n"
+
+    pc = 0
+    for line in listing:
+        if not line.nocode:
+            line_start = f"{pc:4x} : {line.rbin}"
+            mif_output += f"{line_start}{' '*(LISTING_COMMENT_COL-len(line_start))} -- {line.src}\n"
+            pc += 1
+
+    mif_output += f"END;\n"
+
+    # Write results
+    with open("asm-output.mif", "w") as file:
+        file.write(mif_output)
+
+    # Display listing for user
+    for line in listing:
+        line_start = f"{line.pc*4:08x} : {line.fbin}"
+        print(f"{line_start}{' '*(LISTING_COMMENT_COL-len(line_start))} -- {line.src}")

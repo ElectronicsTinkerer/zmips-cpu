@@ -1,5 +1,7 @@
 ; Test data file
     nop
+    nop
+    nop
     LI 0
     OR r0, r0, r0, ZCN ; Clear status flags
     LI -1
