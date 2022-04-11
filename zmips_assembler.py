@@ -24,7 +24,7 @@ class ListingLine:
         self.nocode = nocode # True on lines without an instruction (comments, labels)
 
 # Flags
-FLAG_BITS = {"Z":4,"C":2,"N":1}
+FLAG_BITS = {"Z":4,"C":2,"N":1,"X":0}
 
 # Opcodes
 CONDITIONCODES = {"Z":0, "C":1, "N":2, "A":3}
@@ -168,7 +168,7 @@ if __name__ == "__main__":
             continue
 
         if line[0] == ':':
-            lables[line[1:]] = pc
+            lables[line[1:]] = pc << 2 # word size = 4 bytes
         else:
             pc += 1
 
@@ -306,7 +306,7 @@ if __name__ == "__main__":
                 op.cc = CONDITIONCODES[args[0].upper()]
                 # "Even more Very Secure"
                 print(eval(args[1], globals(), lables), pc)
-                op.immd = (eval(args[1], globals(), lables) - pc - 1) # -1 since PC is the (current PC - 4) in the IF pipeline regs
+                op.immd = (eval(args[1], globals(), lables) - (pc << 2) - 4) >> 2 # -4 since PC is the (current PC - 4) in the IF pipeline regs
             except SyntaxError:
                 pmsg(ERROR, f"Syntax error", line_num)
             except IndexError:
@@ -358,6 +358,11 @@ if __name__ == "__main__":
     # Write results
     with open("asm-output.mif", "w") as file:
         file.write(mif_output)
+
+    # Write file for use in simulation
+    with open("asm-output.dat", "w") as file:
+        for line in listing:
+            file.write(f"{line.fbin}{' '*(LISTING_COMMENT_COL-len(line.fbin))} // {line.src}\n")
 
     # Display listing for user
     for line in listing:

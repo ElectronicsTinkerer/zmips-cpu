@@ -11,7 +11,7 @@ reg clk, rst;
 
 // Instruction memory
 reg [31:0] i_mem[0:4095];
-initial $readmemb("testdata.dat", i_mem);
+initial $readmemb("asm-output.dat", i_mem);
 
 // Data memory
 reg [31:0] d_mem[0:4095];
