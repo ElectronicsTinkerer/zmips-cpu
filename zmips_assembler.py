@@ -343,6 +343,8 @@ if __name__ == "__main__":
             line_start = f"{pc:4x} : {line.rbin}"
             mif_output += f"{line_start};{' '*(LISTING_COMMENT_COL-len(line_start))} -- {line.src}\n"
             pc += 1
+        else:
+            mif_output += f"{' '*(LISTING_COMMENT_COL-4)}  -- {line.src}\n"
 
     mif_output += f"END;\n"
 
