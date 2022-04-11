@@ -1,3 +1,10 @@
+# Assembler for ZMIPS ISA
+#
+# MIF file format: https://www.intel.com/content/www/us/en/programmable/quartushelp/13.0/mergedProjects/reference/glossary/def_mif.htm
+#
+# Zach Baldwin Spring 2022
+# Course: ECSE 314
+
 
 import re
 import sys
