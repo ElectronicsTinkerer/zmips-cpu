@@ -157,7 +157,7 @@ if __name__ == "__main__":
     for line in src:
         line = line.strip()
 
-        if len(line) < 2 or line.startswith("//"):
+        if len(line) < 2 or line.startswith("//") or line.startswith(";"):
             continue
 
         if line[0] == ':':
@@ -288,7 +288,7 @@ if __name__ == "__main__":
         elif op.mne_type == MneType.ADDR:
             try:
                 # "Very Secure"
-                op.jaddr = eval(args[0], globals(), lables)
+                op.jaddr = eval(args[0], globals(), lables) >> 2 # >> 2 since the immediate value is the word address, not the full address
             except SyntaxError:
                 pmsg(ERROR, f"Syntax error", line_num)
             except IndexError:
@@ -298,7 +298,8 @@ if __name__ == "__main__":
             try:
                 op.cc = CONDITIONCODES[args[0].upper()]
                 # "Even more Very Secure"
-                op.immd = eval(args[1], globals(), lables) - pc
+                print(eval(args[1], globals(), lables), pc)
+                op.immd = (eval(args[1], globals(), lables) - pc - 1) # -1 since PC is the (current PC - 4) in the IF pipeline regs
             except SyntaxError:
                 pmsg(ERROR, f"Syntax error", line_num)
             except IndexError:
@@ -340,7 +341,7 @@ if __name__ == "__main__":
     for line in listing:
         if not line.nocode:
             line_start = f"{pc:4x} : {line.rbin}"
-            mif_output += f"{line_start}{' '*(LISTING_COMMENT_COL-len(line_start))} -- {line.src}\n"
+            mif_output += f"{line_start};{' '*(LISTING_COMMENT_COL-len(line_start))} -- {line.src}\n"
             pc += 1
 
     mif_output += f"END;\n"
