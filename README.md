@@ -74,21 +74,21 @@ Description: rd = rs ^ rt
 000100_sssss_ttttt_ddddd_xxxxx_110zcn
 ```
 
-### SLL rd, rs [, flags]
+### SLL rd, rs, shamt [, flags]
 Name: Shift Left Logical
 Description: rd = rs << hhhhh
 ```
 000101_sssss_xxxxx_ddddd_hhhhh_010zcn
 ```
 
-### SRL rd, rs [, flags]
+### SRL rd, rs, shamt [, flags]
 Name: Shift Right Logical
 Description: rd = rs >> hhhhh
 ```
 000101_sssss_xxxxx_ddddd_hhhhh_110zcn
 ```
 
-### SRA rd, rs [, flags]
+### SRA rd, rs, shamt [, flags]
 Name: Shift Right Arithmetic
 Description: rd = rs >>> hhhhh [keeps sign]
 ```
