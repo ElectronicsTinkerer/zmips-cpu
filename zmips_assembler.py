@@ -34,21 +34,22 @@ class OpType(Enum):
     IFRT = 1, # I-format load (R-type)
     IFBR = 2, # I-format branch
     JFMT = 3  # J-format
+    RAW  = 4  # .WORD directive
 
 
 class MneType(Enum):
     R3F  = 0,  # rd, rs, rt, [flags]
-    R2FC = 1,  #~ rs, rt, [flags]
-    R2FN = 2,  #~ rd, rs, [flags]
-    R2FS = 3,  #~ rd, rs, shamt, [flags]
-    R2FD = 4,  #~ rd, rs
-    R2FT = 5,  #~ rs, rt
-    ADDR = 6,  #~ label/address
-    IMMD = 7,  #~ #se_immd
-    BADR = 8,  #~ flag, label/address
-    FLAG = 9,  #~ flag
-    JREG = 10, #~ rs
-    NOP  = 11  #~ <nothing>
+    R2FC = 1,  # rs, rt, [flags]
+    R2FN = 2,  # rd, rs, [flags]
+    R2FS = 3,  # rd, rs, shamt, [flags]
+    R2FD = 4,  # rd, rs
+    R2FT = 5,  # rs, rt
+    ADDR = 6,  # label/address
+    IMMD = 7,  # se_immd
+    BADR = 8,  # flag, label/address
+    FLAG = 9,  # flag
+    JREG = 10, # rs
+    NOP  = 11  # <nothing>
 
 class Opcode:
     def __init__(self, mne:str, opcode:int, op_type:OpType, mne_type:MneType, shamt=0, funct=0, rs=0, rt=0, rd=0, immd=0, jaddr=0, flags=0, cc=0):
@@ -85,7 +86,8 @@ OPS = {
     "BFC" : Opcode("BFC", 0b100000, OpType.IFBR, MneType.BADR),
     "BFS" : Opcode("BFS", 0b101000, OpType.IFBR, MneType.BADR),
     "JPL" : Opcode("JPL", 0b110000, OpType.JFMT, MneType.ADDR),
-    "FFL" : Opcode("FFL", 0b000011, OpType.RFMT, MneType.FLAG, funct = 0b000000)
+    "FFL" : Opcode("FFL", 0b000011, OpType.RFMT, MneType.FLAG, funct = 0b000000),
+    ".WORD" : Opcode(".WORD", 0,    OpType.RAW,  MneType.IMMD)
 }
 
 def op2bin(opcode:Opcode):
@@ -97,6 +99,8 @@ def op2bin(opcode:Opcode):
         return f"{opcode.opcode|opcode.cc:06b}_{((1 << 26) - 1) & opcode.immd:026b}"
     elif opcode.op_type == OpType.JFMT:
         return f"11_{opcode.jaddr:030b}"
+    elif opcode.op_type == OpType.RAW:
+        return f"{opcode.immd:032b}"
 
 # Get the register number from a string.
 # Definitely could use some error handling
