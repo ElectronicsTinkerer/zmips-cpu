@@ -6,6 +6,15 @@ Despite the MIPS name, the architecture gradually changed away from MIPS to some
  
 See `zmips.v`
 
+## Registers
+
+ | Number       | Description                                                                                    |
+ | ------------ | ---------------------------------------------------------------------------------------------- |
+ | `R0`         | Register loaded when loading immediate sign-extended (IMMDSE) data. Otherwise, general purpose |
+ | `R1` - `R29` | General-purpose                                                                                |
+ | `R30`        | PC value + 4 from the last JPL instruction                                                     |
+ | `R31`        | The current PC value (PC + 8 from the instruction's PC due to pipeline)                        |
+
 ## Opcodes
 
 *Note:* If you're clever, you can combine instructions to do more than one operation simultaneously as well as so LW/SW with complex addressing modes.
