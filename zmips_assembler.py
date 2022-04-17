@@ -320,19 +320,22 @@ if __name__ == "__main__":
                 pmsg(ERROR, f"Syntax error", line_num)
             except IndexError:
                 pmsg(ERROR, f"Expected target", line_num)
+            except NameError:
+                pmsg(ERROR, f"Unknown symbol '{args[1]}'", line_num)
                 
         elif op.mne_type == MneType.BADR:
             try:
                 op.cc = CONDITIONCODES[args[0].upper()]
                 # "Even more Very Secure"
-                print(eval(args[1], globals(), lables), pc)
                 op.immd = (eval(args[1], globals(), lables) - (pc << 2) - 4) >> 2 # -4 since PC is the (current PC - 4) in the IF pipeline regs
             except SyntaxError:
                 pmsg(ERROR, f"Syntax error", line_num)
             except IndexError:
                 pmsg(ERROR, f"Expected flag and target or unknown flag", line_num)
             except KeyError:
-                pmsg(ERROR, f"Unknown condition {args[0]}", line_num)
+                pmsg(ERROR, f"Unknown condition '{args[0]}'", line_num)
+            except NameError:
+                pmsg(ERROR, f"Unknown symbol '{args[1]}'", line_num)
 
         elif op.mne_type == MneType.IMMD:
             try:
@@ -342,6 +345,8 @@ if __name__ == "__main__":
                 pmsg(ERROR, f"Syntax error", line_num)
             except IndexError:
                 pmsg(ERROR, f"Expected value", line_num)
+            except NameError:
+                pmsg(ERROR, f"Unknown symbol '{args[1]}'", line_num)
 
         opbin = op2bin(op)
         listing.append(ListingLine(
