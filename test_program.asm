@@ -2,15 +2,29 @@
     nop
     nop
     nop
+    ffl X               ; Clear status flags
+    jpl start
+    jpl real_start
+:start
+    jmp R30
+:real_start
     LI 0
     OR r0, r0, r0, ZCN ; Clear status flags
     LI 1
     MOV r1, r0
     LI 9
     MOV r2, r0
-    MOV r0, r1
+    ; MOV r0, r1
+    li init_loop
+    sll r0, r0, 0
+    jmp r0
+    li 0xaa55
+    nop
+    nop
+:init_loop
+    li 0
 :loop_start
-    FFL X              ; Clear carry
+    FFL C              ; Clear carry
     ADD r1, r1, r0
     SW r1, r1          ; mem[r1] = r1
     CMP r2, r1, Z      ; Count == 9?

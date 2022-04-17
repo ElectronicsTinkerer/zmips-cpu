@@ -39,15 +39,16 @@ class OpType(Enum):
 class MneType(Enum):
     R3F  = 0,  # rd, rs, rt, [flags]
     R2FC = 1,  #~ rs, rt, [flags]
-    R2FS = 2,  #~ rd, rs, [flags]
-    R2FD = 3,  #~ rd, rs
-    R2FT = 4,  #~ rs, rt
-    ADDR = 5,  #~ label/address
-    IMMD = 6,  #~ #se_immd
-    BADR = 7,  #~ flag, label/address
-    FLAG = 8,  #~ flag
-    JREG = 9,  #~ rs
-    NOP  = 10  #~ <nothing>
+    R2FN = 2,  #~ rd, rs, [flags]
+    R2FS = 3,  #~ rd, rs, shamt, [flags]
+    R2FD = 4,  #~ rd, rs
+    R2FT = 5,  #~ rs, rt
+    ADDR = 6,  #~ label/address
+    IMMD = 7,  #~ #se_immd
+    BADR = 8,  #~ flag, label/address
+    FLAG = 9,  #~ flag
+    JREG = 10, #~ rs
+    NOP  = 11  #~ <nothing>
 
 class Opcode:
     def __init__(self, mne:str, opcode:int, op_type:OpType, mne_type:MneType, shamt=0, funct=0, rs=0, rt=0, rd=0, immd=0, jaddr=0, flags=0, cc=0):
@@ -76,7 +77,7 @@ OPS = {
     "SLL" : Opcode("SLL", 0b000101, OpType.RFMT, MneType.R2FS, funct = 0b010000),
     "SRL" : Opcode("SRL", 0b000101, OpType.RFMT, MneType.R2FS, funct = 0b110000),
     "SRA" : Opcode("SRA", 0b000101, OpType.RFMT, MneType.R2FS, funct = 0b100000),
-    "MOV" : Opcode("MOV", 0b000101, OpType.RFMT, MneType.R2FS, funct = 0b000000),
+    "MOV" : Opcode("MOV", 0b000101, OpType.RFMT, MneType.R2FN, funct = 0b000000),
     "JMP" : Opcode("JMP", 0b000000, OpType.RFMT, MneType.JREG, funct = 0b111111),
     "LW"  : Opcode("LW",  0b001101, OpType.RFMT, MneType.R2FD, funct = 0b000000),
     "SW"  : Opcode("SW",  0b001001, OpType.RFMT, MneType.R2FT, funct = 0b000000),
@@ -89,14 +90,16 @@ OPS = {
 
 def op2bin(opcode:Opcode):
     if opcode.op_type == OpType.RFMT:
-        return f"{format(opcode.opcode, '#08b')[2:]}_{format(opcode.rs, '#07b')[2:]}_{format(opcode.rt, '#07b')[2:]}_{format(opcode.rd, '#07b')[2:]}_{format(opcode.shamt, '#07b')[2:]}_{format((opcode.funct|opcode.flags), '#08b')[2:]}"
+        return f"{opcode.opcode:06b}_{opcode.rs:05b}_{opcode.rt:05b}_{opcode.rd:05b}_{opcode.shamt:05b}_{(opcode.funct|opcode.flags):06b}"
     elif opcode.op_type == OpType.IFRT:
-        return f"{format(opcode.opcode, '#08b')[2:]}_{format(((1 << 26) - 1) & opcode.immd, '#028b')[2:]}"
+        return f"{opcode.opcode:06b}_{((1 << 26) - 1) & opcode.immd:026b}"
     elif opcode.op_type == OpType.IFBR:
-        return f"{format(opcode.opcode|opcode.cc, '#08b')[2:]}_{format(((1 << 26) - 1) & opcode.immd, '#028b')[2:]}"
+        return f"{opcode.opcode|opcode.cc:06b}_{((1 << 26) - 1) & opcode.immd:026b}"
     elif opcode.op_type == OpType.JFMT:
-        return f"11_{format(opcode.jaddr, '#032b')[2:]}"
+        return f"11_{opcode.jaddr:030b}"
 
+# Get the register number from a string.
+# Definitely could use some error handling
 def getReg(reg_str):
     return int(reg_str[1:], base=10)
 
@@ -231,7 +234,7 @@ if __name__ == "__main__":
 
         elif op.mne_type == MneType.JREG:
             try:
-                op.rd = getReg(args[0])
+                op.rs = getReg(args[0])
             except IndexError:
                 pmsg(ERROR, f"Expected address or label", line_num)
 
@@ -264,6 +267,23 @@ if __name__ == "__main__":
                 pmsg(ERROR, f"Unknown flag", line_num)
 
         elif op.mne_type == MneType.R2FS:
+            try:
+                op.shamt = int(args[2])
+                op.rs = getReg(args[1])
+                op.rd = getReg(args[0])
+
+                if len(args) > 3:
+                    for c in args[3]:
+                        op.flags |= FLAG_BITS[c.upper()]
+
+            except IndexError:
+                pmsg(ERROR, f"Missing register or shift amount", line_num)
+            except KeyError:
+                pmsg(ERROR, f"Unknown flag", line_num)
+            except ValueError:
+                pmsg(ERROR, f"Expected integer, got: '{args[2]}'", line_num)
+
+        elif op.mne_type == MneType.R2FN:
             try:
                 op.rs = getReg(args[1])
                 op.rd = getReg(args[0])
