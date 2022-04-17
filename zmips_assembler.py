@@ -228,7 +228,6 @@ if __name__ == "__main__":
                 op.flags = 0
                 for c in args[0]:
                     op.flags |= FLAG_BITS[c.upper()]
-                    print(op.mne, c.upper(), FLAG_BITS[c.upper()])
             except IndexError:
                 pmsg(ERROR, f"Missing flag", line_num)
             except KeyError:
@@ -259,8 +258,8 @@ if __name__ == "__main__":
                 op.rt = getReg(args[1])
                 op.rs = getReg(args[0])
 
+                op.flags = 0
                 if len(args) > 2:
-                    op.flags = 0
                     for c in args[2]:
                         op.flags |= FLAG_BITS[c.upper()]
 
@@ -275,8 +274,8 @@ if __name__ == "__main__":
                 op.rs = getReg(args[1])
                 op.rd = getReg(args[0])
 
+                op.flags = 0
                 if len(args) > 3:
-                    op.flags = 0
                     for c in args[3]:
                         op.flags |= FLAG_BITS[c.upper()]
 
@@ -292,8 +291,8 @@ if __name__ == "__main__":
                 op.rs = getReg(args[1])
                 op.rd = getReg(args[0])
 
+                op.flags = 0
                 if len(args) > 2:
-                    op.flags = 0
                     for c in args[2]:
                         op.flags |= FLAG_BITS[c.upper()]
 
@@ -308,8 +307,8 @@ if __name__ == "__main__":
                 op.rs = getReg(args[1])
                 op.rd = getReg(args[0])
 
+                op.flags = 0
                 if len(args) > 3:
-                    op.flags = 0
                     for c in args[3]:
                         op.flags |= FLAG_BITS[c.upper()]
 
