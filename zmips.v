@@ -35,8 +35,8 @@
 
 module zmips(i_data, i_addr, d_data_o, d_data_i, d_addr, clk, d_wr, d_rd, rst);
 input [31:0] i_data;
-output [31:0] i_addr, d_addr, d_data_i;
-inout [31:0] d_data_o;
+output [31:0] i_addr, d_addr, d_data_o;
+input [31:0] d_data_i;
 input clk, rst; // Active HIGH reset
 output d_wr, d_rd;
 
