@@ -22,7 +22,7 @@ zmips UUT_ZPU0(i_data, i_addr, d_data_o, d_data_i, d_addr, clk, d_wr, d_rd, rst)
 assign i_data = i_mem[i_addr >> 2];
 assign d_data_i = d_mem[d_addr >> 2];
 
-always @(negedge clk)
+always @(posedge clk)
 begin
     if (d_wr)
     begin
