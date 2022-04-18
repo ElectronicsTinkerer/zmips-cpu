@@ -214,7 +214,6 @@ wire [1:0] ir_j_op;
 wire [4:0] ir_rs;
 wire [4:0] ir_rt;
 wire [4:0] ir_rd;
-wire [4:0] ir_shamt;
 wire [5:0] ir_funct;
 wire [25:0] ir_immd;
 wire [29:0] ir_addr;
@@ -321,7 +320,6 @@ assign ir_cc = if_id_pipe_ir[27:26];
 assign ir_rs = if_id_pipe_ir[25:21];
 assign ir_rt = if_id_pipe_ir[20:16];
 assign ir_rd = if_id_pipe_ir[15:11];
-assign ir_shamt = if_id_pipe_ir[10:6];
 assign ir_funct = if_id_pipe_ir[5:0];
 assign ir_immd = if_id_pipe_ir[25:0];
 assign ir_addr = if_id_pipe_ir[29:0];
@@ -330,7 +328,7 @@ assign ir_addr = if_id_pipe_ir[29:0];
 assign ir_immd_se = {{6{ir_immd[25]}}, ir_immd};
 
 // Shift immediate
-assign ir_immd_se_sh = {ir_immd_se, 2'b00};
+assign ir_immd_se_sh = {ir_immd_se[30:0], 2'b00};
 
 // Calculate branch address
 zmips_n_adder #(.W(32)) ADD_PC_ID(.a(if_id_pipe_pc), .b(ir_immd_se_sh), .sum(pc_id_temp_branch_val));
