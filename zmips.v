@@ -328,7 +328,7 @@ assign ir_addr = if_id_pipe_ir[29:0];
 assign ir_immd_se = {{6{ir_immd[25]}}, ir_immd};
 
 // Shift immediate
-assign ir_immd_se_sh = {ir_immd_se[30:0], 2'b00};
+assign ir_immd_se_sh = {ir_immd_se[29:0], 2'b00};
 
 // Calculate branch address
 zmips_n_adder #(.W(32)) ADD_PC_ID(.a(if_id_pipe_pc), .b(ir_immd_se_sh), .sum(pc_id_temp_branch_val));
