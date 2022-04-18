@@ -8,6 +8,7 @@
 
 import re
 import sys
+import os
 import traceback
 from colorama import Fore
 from enum import Enum
@@ -330,7 +331,7 @@ if __name__ == "__main__":
             except IndexError:
                 pmsg(ERROR, f"Expected target", line_num)
             except NameError:
-                pmsg(ERROR, f"Unknown symbol '{args[1]}'", line_num)
+                pmsg(ERROR, f"Unknown symbol in '{args[0]}'", line_num)
                 
         elif op.mne_type == MneType.BADR:
             try:
@@ -344,7 +345,7 @@ if __name__ == "__main__":
             except KeyError:
                 pmsg(ERROR, f"Unknown condition '{args[0]}'", line_num)
             except NameError:
-                pmsg(ERROR, f"Unknown symbol '{args[1]}'", line_num)
+                pmsg(ERROR, f"Unknown symbol in '{args[1]}'", line_num)
 
         elif op.mne_type == MneType.IMMD:
             try:
@@ -355,7 +356,7 @@ if __name__ == "__main__":
             except IndexError:
                 pmsg(ERROR, f"Expected value", line_num)
             except NameError:
-                pmsg(ERROR, f"Unknown symbol '{args[1]}'", line_num)
+                pmsg(ERROR, f"Unknown symbol in '{args[0]}'", line_num)
 
         opbin = op2bin(op)
         listing.append(ListingLine(
@@ -390,11 +391,11 @@ if __name__ == "__main__":
     mif_output += f"END;\n"
 
     # Write results
-    with open("asm-output.mif", "w") as file:
+    with open(f"{os.path.splitext(infile)[0]}.mif", "w") as file:
         file.write(mif_output)
 
     # Write file for use in simulation
-    with open("asm-output.dat", "w") as file:
+    with open(f"{os.path.splitext(infile)[0]}.dat", "w") as file:
         for line in listing:
             file.write(f"{line.fbin}{' '*(LISTING_COMMENT_COL-len(line.fbin))} // {line.src}\n")
 

@@ -2,6 +2,11 @@
     nop
     nop
     nop
+    li 0xc89e
+    mov r1, r0
+    li 0
+    sw r0, r1
+    lw r1, r0
     ffl X               ; Clear status flags
     jpl start
     jpl real_start
