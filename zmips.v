@@ -198,7 +198,8 @@ wire [31:0] pc_id_val;          // For when the ID stage must modify the PC (bra
 wire [31:0] ir_addr_sh;         // Shifted immediate address for Jump & Link instruction
 wire [31:0] id_pc_alu_mem;      // Muxed bus from MEM ALU out or memory read
 wire [31:0] id_pc_reg_val;      // Value of the register to load the PC with
-reg id_rfmt;                    // High when instruction is R-format or I-format/R-type
+reg id_rfmt;                    // High when instruction is R-format
+reg id_imfmt;                   // High when instruction is I-format SE IMMD load
 reg id_ifmt;                    // High when instruction is I-format
 reg id_jfmt;                    // High when instruction is J-format
 reg id_do_branch;               // High when a branch should be taken
@@ -357,14 +358,16 @@ assign ir_addr_sh = {ir_addr[29:0], 2'b00};
 // Determine opcode data layout
 always @(*)
 begin
-    id_rfmt = 1'b0;
-    id_ifmt = 1'b0;
-    id_jfmt = 1'b0;
+    id_rfmt  = 1'b0;
+    id_imfmt = 1'b0;
+    id_ifmt  = 1'b0;
+    id_jfmt  = 1'b0;
 
     casex (ir_j_op)
-        2'b0x: id_rfmt = 1'b1;
-        2'b10: id_ifmt = 1'b1;
-        2'b11: id_jfmt = 1'b1;
+        2'b00: id_rfmt  = 1'b1;
+        2'b01: id_imfmt = 1'b1;
+        2'b10: id_ifmt  = 1'b1;
+        2'b11: id_jfmt  = 1'b1;
     endcase
 end
 
@@ -415,7 +418,7 @@ zmips_regfile RF0(
     );
 
 // For immediate load operations, set the rd to 0
-assign id_immd_load = id_rfmt & ir_i_op[2];
+assign id_immd_load = id_imfmt & ir_i_op[2];
 
 // ID/EX connection pipeline register(s)
 always @(negedge clk)
@@ -428,7 +431,7 @@ begin
     id_ex_pipe_immd_se <= ir_immd_se;   // Pass along sign extended immediate
     id_ex_pipe_shop <= ir_r_op[0];      // Pass along upper bit of ALUOp
     
-    if (hd_id_ex_flush == 1'b1 || id_rfmt == 1'b0) // If a hazard (or branch/jump) is detected, knock out the next stage
+    if (hd_id_ex_flush == 1'b1 || (id_rfmt|id_imfmt) == 1'b0) // If a hazard (or branch/jump) is detected, knock out the next stage
     begin
         id_ex_pipe_alusrc <= 1'b0;
         id_ex_pipe_memrd <= 1'b0;
@@ -443,7 +446,7 @@ begin
         id_ex_pipe_alusrc <= id_immd_load;              // Set ALU a source to SE_IMMD if I-Format
         id_ex_pipe_memrd <= ir_r_op[3] & ir_r_op[2];    // Set mem read on LOAD instruction
         id_ex_pipe_memwr <= ir_r_op[3] & !ir_r_op[2];   // Set mem write on STORE instruction
-        id_ex_pipe_wrreg <= id_rfmt & ir_r_op[2];       // Write back to reg
+        id_ex_pipe_wrreg <= (id_rfmt | id_imfmt) & ir_r_op[2]; // Write back to reg
         id_ex_pipe_wrzf <= id_rfmt & ir_funct[2];       // Only change Z flag for R-Type instructions
         id_ex_pipe_wrcf <= id_rfmt & ir_funct[1];       // Only change C flag for R-Type instructions
         id_ex_pipe_wrnf <= id_rfmt & ir_funct[0];       // Only change N flag for R-Type instructions
