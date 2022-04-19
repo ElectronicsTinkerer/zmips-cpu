@@ -586,7 +586,7 @@ begin
     end
 
      // Check for R-format jump register dependencies
-    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_memrd == 1'b1 && (id_ex_pipe_rd == ir_rs))
+    if (id_r_jump == 1'b1 && id_ex_pipe_memrd == 1'b1 && (id_ex_pipe_rd == ir_rs))
     begin
         hw_reg_conflict = 1'b1;
         //stall
@@ -597,7 +597,7 @@ end
 // Signal pipeline stages
 assign hd_id_ex_flush = hw_reg_conflict;
 assign hd_if_pc_wr = ~hw_reg_conflict;              // Only update PC when there is not a register conflict
-assign hd_if_id_flush = (~id_rfmt) | id_r_jump;     // NOP the IF stage when a branch or jump is in ID stage (stall on every jump or branch 1 cycle)
+assign hd_if_id_flush = (~(id_rfmt|id_imfmt)) | id_r_jump;     // NOP the IF stage when a branch or jump is in ID stage (stall on every jump or branch 1 cycle)
 
 
 // ----------------- FORWARDING CONTROL -----------------
