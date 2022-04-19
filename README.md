@@ -17,7 +17,7 @@ See `zmips.v`
 
 ## Opcodes
 
-*Note:* If you're clever, you can combine instructions to do more than one operation simultaneously as well as so LW/SW with complex addressing modes.
+*Note:* If you're clever with the instruction bits, you can combine instructions to do more than one operation simultaneously (such as LW/SW with complex addressing modes).
 
 **Fields:**
 * rd = destination register
