@@ -157,9 +157,9 @@ output d_wr, d_rd;
 
 // Signals for HAZARD DETECTION UNIT
     // EXTERNAL
-wire hd_if_id_flush;            // Set to clear the IR to be a NOP
-wire hd_id_ex_flush;            // Set to disable stages following ID (this particular cycle as it moves through)
-wire hd_if_pc_wr;               // Set to enable updating of PC
+reg hd_if_id_flush;             // Set to clear the IR to be a NOP
+reg hd_id_ex_flush;             // Set to disable stages following ID (this particular cycle as it moves through)
+reg hd_if_pc_wr;                // Set to enable updating of PC
 
     // INTERNAL
 reg hw_reg_conflict;            // High when rt(ID/EX) == rs(IF/ID) or rt(ID/EX) == rt(IF/ID)
@@ -306,7 +306,7 @@ begin
     begin
         if_id_pipe_ir <= 32'b0;
     end
-    else
+    else if (hd_if_pc_wr) // The IR is only updated if the PC changes
     begin
         if_id_pipe_ir <= i_data;
     end
@@ -377,8 +377,8 @@ assign id_r_jump = (&ir_funct) & id_rfmt;
 assign pc_src_sel = id_r_jump | id_jfmt | id_ifmt;
 
 zmips_mux232 MUX_PC_ALUMEM(
-        .a(ex_mem_pipe_alu_rslt),
-        .b(d_data_i),
+        .a(ex_mem_pipe_alu_rslt),   // ALU result from previous stage
+        .b(d_data_i),               // Result from reading memory
         .sel(ex_mem_pipe_memrd),
         .y(id_pc_alu_mem)
     );
@@ -580,25 +580,23 @@ assign wb_wr = mem_wb_pipe_wrreg;
 always @(*)
 begin
     hw_reg_conflict = 1'b0;
-    if (id_ex_pipe_memrd == 1'b1 && ((id_ex_pipe_rd == ir_rs) || (id_ex_pipe_rd == ir_rt)))
+    if (id_ex_pipe_memrd == 1'b1 &&
+        ((id_ex_pipe_rd == ir_rs) || ((id_ex_pipe_rd == ir_rt) && id_r_jump == 1'b0)))
     begin
         hw_reg_conflict = 1'b1;
-    end
-
-     // Check for R-format jump register dependencies
-    if (id_r_jump == 1'b1 && id_ex_pipe_memrd == 1'b1 && (id_ex_pipe_rd == ir_rs))
-    begin
-        hw_reg_conflict = 1'b1;
-        //stall
     end
 
 end
 
 // Signal pipeline stages
-assign hd_id_ex_flush = hw_reg_conflict;
-assign hd_if_pc_wr = ~hw_reg_conflict;              // Only update PC when there is not a register conflict
-assign hd_if_id_flush = (~(id_rfmt|id_imfmt)) | id_r_jump;     // NOP the IF stage when a branch or jump is in ID stage (stall on every jump or branch 1 cycle)
-
+always @(posedge clk)
+begin
+    hd_id_ex_flush <= hw_reg_conflict;
+    hd_if_pc_wr <= (~hw_reg_conflict) | rst;                 // Only update PC when there is not a register conflict
+    // NOP the IF stage when a branch or jump is in ID stage (stall on every jump or branch 1 cycle)
+    //    AND there is no register conflicts (If there's not a reg conflict, then this will not flush)
+    hd_if_id_flush <= (~hw_reg_conflict) & ((~(id_rfmt|id_imfmt)) | id_r_jump);
+end
 
 // ----------------- FORWARDING CONTROL -----------------
 
@@ -648,15 +646,15 @@ begin
     end
 
     // Check for R-format jump register dependencies
-    if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (id_ex_pipe_rd == ir_rs))
+    if (id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (id_ex_pipe_rd == ir_rs))
     begin
         fw_id_jump_rs = 2'b01; // ALU result
     end
-    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (ex_mem_pipe_wb_reg == ir_rs))
+    else if (id_r_jump == 1'b1 && ex_mem_pipe_wrreg == 1'b1 && (ex_mem_pipe_wb_reg == ir_rs))
     begin
         fw_id_jump_rs = 2'b10; // Prev ALU result
     end
-    else if (id_rfmt == 1'b1 && id_r_jump == 1'b1 && id_ex_pipe_wrreg == 1'b1 && (mem_wb_pipe_wb_reg == ir_rs))
+    else if (id_r_jump == 1'b1 && mem_wb_pipe_wrreg == 1'b1 && (mem_wb_pipe_wb_reg == ir_rs))
     begin
         fw_id_jump_rs = 2'b11; // Write back result
     end

@@ -38,12 +38,12 @@ begin
     // If writing and one of the first 30 regs, then write
     if (wr && (&(wr_addr & 5'b11110) == 1'b0)) 
     begin
-        regfile[wr_addr] = wr_data;
+        regfile[wr_addr] <= wr_data;
     end
 
     if (pc_wr)
     begin
-        pc_reg = pc_val;
+        pc_reg <= pc_val;
     end
 end
 

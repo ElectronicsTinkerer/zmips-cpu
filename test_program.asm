@@ -2,11 +2,18 @@
     nop
     nop
     nop
-    li 0xc89e
-    mov r1, r0
     li 0
-    sw r0, r1
-    lw r2, r0
+    mov r1, r0
+    li prestart
+    sw r1, r0           ; Store jump address at memory[r1=0]
+    lw r2, r1
+    li 9
+    jmp r2
+    
+    nop
+    nop
+    nop
+:prestart
     ffl X               ; Clear status flags
     jpl start
     jpl real_start
