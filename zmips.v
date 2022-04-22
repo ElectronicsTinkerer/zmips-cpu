@@ -594,8 +594,8 @@ begin
     hd_id_ex_flush <= hw_reg_conflict;
     hd_if_pc_wr <= (~hw_reg_conflict) | rst;                 // Only update PC when there is not a register conflict
     // NOP the IF stage when a branch or jump is in ID stage (stall on every jump or branch 1 cycle)
-    //    AND there is no register conflicts (If there's not a reg conflict, then this will not flush)
-    hd_if_id_flush <= (~hw_reg_conflict) & ((~(id_rfmt|id_imfmt)) | id_r_jump);
+    //    OR there is no register conflicts and it is a R-format jump
+    hd_if_id_flush <= (~(id_rfmt|id_imfmt)) | ((~hw_reg_conflict) & id_r_jump);
 end
 
 // ----------------- FORWARDING CONTROL -----------------
