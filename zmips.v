@@ -1,37 +1,19 @@
 /*
     CLOCK CYCLE:
-                ______________
-                |
-       FIRST    |   SECOND
-        HALF    |    HALF
-    ____________|
+    ___            _____________
+      |            |           |
+      |   FIRST    |   SECOND  |
+      |    HALF    |    HALF   |
+      |____________|           |__
 
+      ^            ^
+      |            |
+      |            Read
+      Writeback
+
+    ** Reg and Mem writeback: posedge clk
+    ** PC and pipeline regs update: negedge clk
 */
-
-// TODO: 
-// * Hazard detection
-// * Forwarding unit
-//   -> ~~Specifically the flags
-// * ~~ALU OP decoding
-// * ~~shifting
-// * ~~branching
-// * ~~jumping (J-Format)
-// * ~~jumping (R-format)
-// * ~~Load immediate se (to reg 0)
-/*
- ~~Move barrel shifter into the ALU, allowing for carry to be sent through.
- ~~Use the no shift operation as a "passthrough" allowing for immediate loading 
- ~~of data via opcode format 1. - This will need to use 3 bits as the ALUop.
- ~~Set bit 2 high for shift, low for normal ALU ops. This allows for the lower 
- ~~two bits to be used to select the specific operation. (Also not including bit 0, 
- ~~which is used for the adder/subtractor)
- ~~Need to add shamt input to ALU
- ~~Add a mux in so that the C input to the ALU can be set for CMP operation
- ~~Reg 31 is PC direct
- ~~Reg 30 is PC shadow reg (save location for a jump J-format)
-*/
-
-
 
 module zmips(i_data, i_addr, d_data_o, d_data_i, d_addr, clk, d_wr, d_rd, rst);
 input [31:0] i_data;
@@ -126,34 +108,6 @@ output d_wr, d_rd;
 //
 //
 
-// BEGIN OLD ----------------------------
-// // R-FORMAT
-// localparam I_NOP   = 6'h00;
-// localparam I_AND   = 6'h00;    // Bitwise AND rd = rs & rt
-// localparam I_OR    = 6'h00;    // Bitwise OR rd = rs | rt
-// localparam I_EOR   = 6'h00;    // Bitwise XOR rd = rs ^ rt
-// localparam I_SUB   = 6'h00;    // Subtract rd = rs - rt
-// // localparam I_CMP   = 6'h00;    // Compare regs rs - rt
-// localparam I_ADD   = 6'h00;    // Add rd = rs + rt
-//         // Note that these use the lowest 2 bits for determining the shift direction
-// localparam I_SLL   = 6'h08;    // Shift Locgical Left rd = rd << shamt
-// localparam I_SRL   = 6'h0A;    // Shift Locgical Right rd = rd >>> shamt
-// localparam I_SRA   = 6'h0B;    // Shift Arithmetic Right rd = rd >> shamt
-
-// // I_FORMAT
-// localparam I_SUBI  = 6'h10;    // Subtract signed immediate rt = rs - #se_immd
-// localparam I_ADDI  = 6'h11;    // Add rt = rs + #se_immd
-// localparam I_BFC   = 6'h12;    // Branch on flag "F" clear (format: BFS F, label ; where F is Z, C, N)
-// localparam I_BFS   = 6'h13;    // Branch on flag "F" set
-// localparam I_LW    = 6'h16;    // Load rt with value at rs + #se_immd
-// localparam I_SW    = 6'h17;    // Store rt to rs + #se_immd
-
-// // J-FORMAT
-// localparam I_JRE   = 6'h18;    // Jump to reg
-// localparam I_JMP   = 6'h19;    // Jump to {PC[31:26], addr}
-// localparam I_JAL   = 6'h1A;    // Jump to {PC[31:26], addr}, storing the current PC to 
-// END OLD ----------------------------
-
 
 // Signals for HAZARD DETECTION UNIT
     // EXTERNAL
@@ -162,7 +116,7 @@ reg hd_id_ex_flush;             // Set to disable stages following ID (this part
 reg hd_if_pc_wr;                // Set to enable updating of PC
 
     // INTERNAL
-reg hw_reg_conflict;            // High when rt(ID/EX) == rs(IF/ID) or rt(ID/EX) == rt(IF/ID)
+reg hw_reg_conflict;            // High when approximately rt(ID/EX) == rs(IF/ID) or rt(ID/EX) == rt(IF/ID)
 
 
 // Signals for FORWARDING UNIT
