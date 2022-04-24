@@ -2,6 +2,17 @@
     nop
     nop
     nop
+    ffl x
+    li 20
+    mov r21, r0
+    li 0
+    mov r1,r0
+    li 1
+    ; nop
+    lw r10, r21             ; Get word from data memory
+    ffl x
+    add r1, r1, r0
+
     li 0
     mov r1, r0
     li prestart
