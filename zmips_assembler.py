@@ -204,6 +204,7 @@ if __name__ == "__main__":
             pc += 1
 
     listing:ListingLine = []
+    line_num = 0
     pc = 0
 
     for line in src:
