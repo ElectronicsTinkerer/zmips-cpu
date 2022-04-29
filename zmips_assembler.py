@@ -188,16 +188,20 @@ if __name__ == "__main__":
         line = line.split('//')[0]
 
         if line[0] == ':':
-            label = line[1:]
+            parts = line.split(maxsplit=1)
+            label = parts[0][1:]
             if label not in labels:
                 labels[label] = pc << 2 # word size = 4 bytes
             else:
                 pmsg(ERROR, f"Multiple define label '{label}'", line_num)
-        elif line[0] == '=':
+        elif line[0] == '=': #Can't forward resolve equates
             parts = line.split(maxsplit=1)
             equate = parts[0][1:]
             if equate not in labels:
-                labels[equate] = eval(parts[1], globals(), labels)
+                if len(parts) > 1:
+                    labels[equate] = eval(parts[1], globals(), labels) #Again, "definitely" secure
+                else:
+                    pmsg(ERROR, f"Encountered equate without value '{equate}'", line_num)
             else:
                 pmsg(ERROR, f"Multiple define equate '{equate}'", line_num)
         else:
