@@ -106,7 +106,14 @@ def op2bin(opcode:Opcode):
 # Get the register number from a string.
 # Definitely could use some error handling
 def getReg(reg_str):
-    return int(reg_str[1:], base=10)
+    if len(reg_str) < 2:
+        pmsg(ERROR, f"Unexpected designator '{reg_str}'", line_num)
+    if reg_str[0].upper() != 'R' or not reg_str[1].isdigit():
+        pmsg(ERROR, f"Expected register, got '{reg_str}'", line_num)
+    i = int(reg_str[1:], base=10)
+    if i < 0 or i > 31:
+        pmsg(ERROR, f"Invalid register number '{reg_str}'", line_num)
+    return i
 
 # Message Levels
 INFO = 0
