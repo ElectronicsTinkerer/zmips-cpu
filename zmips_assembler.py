@@ -188,7 +188,7 @@ if __name__ == "__main__":
         line_num += 1
         line = line.strip()
 
-        if len(line) < 2 or line.startswith("//") or line.startswith(";"):
+        if len(line) < 1 or line.startswith("//") or line.startswith(";"):
             continue
 
         line = line.split(';')[0]
@@ -196,17 +196,24 @@ if __name__ == "__main__":
 
         if line[0] == ':':
             parts = line.split(maxsplit=1)
-            label = parts[0][1:]
-            if label not in labels:
+            label = parts[0][1:].strip()
+            if label == '':
+                pmsg(WARN, "Ignoring empty label", line_num)
+            elif label not in labels:
                 labels[label] = pc << 2 # word size = 4 bytes
             else:
                 pmsg(ERROR, f"Multiple define label '{label}'", line_num)
         elif line[0] == '=': #Can't forward resolve equates
             parts = line.split(maxsplit=1)
-            equate = parts[0][1:]
-            if equate not in labels:
+            equate = parts[0][1:].strip()
+            if equate == '':
+                pmsg(WARN, "Ignoring empty equate", line_num)
+            elif equate not in labels:
                 if len(parts) > 1:
-                    labels[equate] = eval(parts[1], globals(), labels) #Again, "definitely" secure
+                    try:
+                        labels[equate] = eval(parts[1], globals(), labels) #Again, "definitely" secure
+                    except NameError:
+                        pmsg(ERROR, f"Unknown symbol in expression '{equate}'", line_num)
                 else:
                     pmsg(ERROR, f"Encountered equate without value '{equate}'", line_num)
             else:
@@ -365,7 +372,7 @@ if __name__ == "__main__":
             except IndexError:
                 pmsg(ERROR, f"Expected target", line_num)
             except NameError:
-                pmsg(ERROR, f"Unknown symbol in '{args[0]}'", line_num)
+                pmsg(ERROR, f"Unknown symbol in expression '{args[0]}'", line_num)
                 
         elif op.mne_type == MneType.BADR:
             try:
@@ -379,7 +386,7 @@ if __name__ == "__main__":
             except KeyError:
                 pmsg(ERROR, f"Unknown condition '{args[0]}'", line_num)
             except NameError:
-                pmsg(ERROR, f"Unknown symbol in '{args[1]}'", line_num)
+                pmsg(ERROR, f"Unknown symbol in expression '{args[1]}'", line_num)
 
         elif op.mne_type == MneType.IMMD:
             try:
@@ -390,7 +397,7 @@ if __name__ == "__main__":
             except IndexError:
                 pmsg(ERROR, f"Expected value", line_num)
             except NameError:
-                pmsg(ERROR, f"Unknown symbol in '{args[0]}'", line_num)
+                pmsg(ERROR, f"Unknown symbol in expression '{args[0]}'", line_num)
 
         opbin = op2bin(op)
         listing.append(ListingLine(
@@ -433,7 +440,10 @@ if __name__ == "__main__":
         for line in listing:
             file.write(f"{line.fbin}{' '*(LISTING_COMMENT_COL-len(line.fbin))} // {line.src}\n")
 
-    # Display listing for user
-    for line in listing:
-        line_start = f"{line.pc*4:08x} : {line.fbin}"
-        print(f"{line_start}{' '*(LISTING_COMMENT_COL-len(line_start))} -- {line.src}")
+    # Write listing for user
+    with open(f"{outfile}.lst", "w") as file:
+        for line in listing:
+            line_start = f"{line.pc*4:08x} : {line.fbin}"
+            file.write(f"{line_start}{' '*(LISTING_COMMENT_COL-len(line_start))} -- {line.src}\n")
+
+    pmsg(INFO, "Done")
