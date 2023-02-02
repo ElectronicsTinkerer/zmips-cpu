@@ -2,8 +2,10 @@
 #
 # MIF file format: https://www.intel.com/content/www/us/en/programmable/quartushelp/13.0/mergedProjects/reference/glossary/def_mif.htm
 #
-# Zach Baldwin Spring 2022
+# (C) Zach Baldwin Spring 2022
 # Course: ECSE 314
+#
+# Updated: 2023-02-01
 
 
 import re
@@ -316,7 +318,7 @@ if __name__ == "__main__":
 
         elif op.mne_type == MneType.R2FS:
             try:
-                op.shamt = int(args[2])
+                op.shamt = eval(args[2], globals(), labels)
                 op.rs = getReg(args[1])
                 op.rd = getReg(args[0])
 
