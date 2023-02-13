@@ -5,7 +5,9 @@
 # (C) Zach Baldwin Spring 2022
 # Course: ECSE 314
 #
-# Updated: 2023-02-01
+# Updated:
+# 2023-02-01 -> EQUates not evaluated on R2FS inst types
+# 2023-02-13 -> Add @addr org relocation syntax
 
 
 import re
@@ -139,9 +141,24 @@ def pmsg(level, msg, line_num = -1):
         exit(-1)
 
 
+def parseorg(line):
+    addr = line[1:]
+    pc = 0
+    if addr == '':
+        pmsg(ERROR, "Encountered '@' without expression for address", line_num)
+    else:
+        try:
+            val = eval(addr, globals(), labels) #Again, "definitely" "souper-dooper" secure
+            if val < 0:
+                pmsg(ERROR, "Encountered '@' with negative operand", line_num)
+            else:
+                pc = val
+        except NameError:
+            pmsg(ERROR, f"Unknown symbol in expression '{addr}'", line_num)
+    return pc
+            
+        
 def printhelp():
-    print(" **** ZIPS Assembler ****")
-    print("  Zach Baldwin Spring 2022")
     print("")
     print(" USAGE:")
     print("$ python zmips_assembler.py input_file.asm outputfile")
@@ -151,7 +168,7 @@ if __name__ == "__main__":
     argv = sys.argv[1:]
 
     print(" **** ZIPS Assembler ****")
-    print("  Zach Baldwin Spring 2022")
+    print(" (C) Zach Baldwin 2022 - 2023")
     print("")
 
     if len(sys.argv) != 3:
@@ -220,6 +237,8 @@ if __name__ == "__main__":
                     pmsg(ERROR, f"Encountered equate without value '{equate}'", line_num)
             else:
                 pmsg(ERROR, f"Multiple define equate '{equate}'", line_num)
+        elif line[0] == '@':
+            parseorg(line)
         else:
             pc += 1
 
@@ -237,9 +256,24 @@ if __name__ == "__main__":
             continue
 
         # Ignore comments and labels
-        if line.startswith("//") or line.startswith(":") or line.startswith(";") or line.startswith("="):
+        if line.startswith(("//", ":", ";", "=")):
             listing.append(ListingLine(line, pc, nocode=True))
             continue
+
+        if line.startswith(("@")):
+            newpc = parseorg(line)
+            while pc < newpc:
+                opbin = "00000000"
+                listing.append(ListingLine(
+                    line,
+                    pc,
+                    f"{opbin}{' '*(40-len(opbin))}",
+                    re.sub('_', '', opbin) # Remove '_'s from the line so it is just binary
+                ))
+
+                pc += 1
+            continue
+
 
         subline = line
         if "//" in line:
