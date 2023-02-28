@@ -2,13 +2,13 @@
  * 4 x 32 MUX
  */
 
-module zmips_mux432(a, b, c, d, sel, y);
-input [31:0] a, b, c, d;
-input [1:0] sel;
-output reg [31:0] y;
+module zmips_mux432(
+    input [31:0] a, b, c, d,
+    input [1:0] sel,
+    output reg [31:0] y
+    );
 
-always @(a or b or c or d or sel)
-begin
+always_comb begin
     case (sel)
     2'b00: begin
         y = a;
@@ -25,4 +25,4 @@ begin
     endcase
 end
 
-endmodule
+endmodule: zmips_mux432

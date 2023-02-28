@@ -8,17 +8,18 @@
  */
 
 
-module zmips_regfile(addr_0, addr_1, pc_val, pc_wr, wr_addr, wr_data, wr, clk, data_0, data_1);
-input [4:0] addr_0, addr_1, wr_addr;
-input [31:0] wr_data, pc_val;
-input pc_wr, wr, clk;
-output [31:0] data_0, data_1;
+module zmips_regfile(
+    input [4:0] addr_0, addr_1, wr_addr,
+    input [31:0] wr_data, pc_val,
+    input pc_wr, wr, clk,
+    output [31:0] data_0, data_1
+    );
 
 // The internal register file
-reg [31:0] regfile [0:29];
-reg [31:0] pc_reg;
+logic [31:0] regfile [0:29];
+logic [31:0] pc_reg;
 
-wire [1:0] regsel_0, regsel_1;
+logic [1:0] regsel_0, regsel_1;
 
 assign regsel_0 = {&addr_0[4:1], addr_0[0]};
 assign regsel_1 = {&addr_1[4:1], addr_1[0]};
@@ -41,22 +42,18 @@ zmips_mux432 MUX_D1(
     .y(data_1)
 );
 
-always @(posedge clk)
-begin
+always_ff @(posedge clk) begin
     // If writing and one of the first 30 regs, then write
-    if (wr && ((&wr_addr[4:1]) == 1'b0)) 
-    begin
+    if (wr && ((&wr_addr[4:1]) == 1'b0)) begin
         regfile[wr_addr] <= wr_data;
     end
 end
 
-always @(posedge clk)
-begin
-    if (pc_wr)
-    begin
+always_ff @(posedge clk) begin
+    if (pc_wr) begin
         pc_reg <= pc_val;
     end
 end
 
 
-endmodule
+endmodule: zmips_regfile

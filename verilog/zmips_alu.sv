@@ -1,10 +1,11 @@
-module zmips_alu(a, b, op, shamt, cin, y, zero, cout);
-input [31:0] a, b;
-input [3:0] op;
-input [4:0] shamt;
-input cin;
-output [31:0] y;
-output zero, cout;
+module zmips_alu(
+    input [31:0] a, b,
+    input [3:0] op,
+    input [4:0] shamt,
+    input cin,
+    output [31:0] y,
+    output zero, cout
+    );
 
 // ALU Operations
 // Format of op:
@@ -39,17 +40,17 @@ localparam A_SRA = 6'hc;
 localparam A_SRL = 6'he;
 
 
-wire [31:0] b_in;           // The B input to the adder
-wire [31:0] add_rslt;       // The result of the adder
-wire [31:0] and_rslt;       // Result of ANDing A and B
-wire [31:0] or_rslt;        // Result of ORing A and B
-wire [31:0] eor_rslt;       // Result of XORing A and B
-wire [31:0] g0_y;           // Result from Group 0 operations
-wire [31:0] g1_y;           // Result from Group 1 operations
-wire [1:0] i_op;            // Internal OPeration category
-wire i_group;               // Operation group identifier
-wire i_cout;
-wire g0_cout, g1_cout;      // Carry out signals from each group
+logic [31:0] b_in;           // The B input to the adder
+logic [31:0] add_rslt;       // The result of the adder
+logic [31:0] and_rslt;       // Result of ANDing A and B
+logic [31:0] or_rslt;        // Result of ORing A and B
+logic [31:0] eor_rslt;       // Result of XORing A and B
+logic [31:0] g0_y;           // Result from Group 0 operations
+logic [31:0] g1_y;           // Result from Group 1 operations
+logic [1:0] i_op;            // Internal OPeration category
+logic i_group;               // Operation group identifier
+logic i_cout;
+logic g0_cout, g1_cout;      // Carry out signals from each group
 
 assign i_op = op[2:1];
 assign i_group = op[3];
@@ -81,4 +82,5 @@ zmips_barrel_shift ALU_I_BS(.a(a), .shift(shamt), .op(i_op), .y(g1_y), .cout(g1_
 zmips_mux232 ALU_IO_MUX(.a(g0_y), .b(g1_y), .sel(i_group), .y(y));
 assign cout = i_group ? g1_cout : g0_cout;
 
-endmodule
+endmodule: zmips_alu
+
