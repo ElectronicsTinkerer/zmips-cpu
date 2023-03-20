@@ -228,6 +228,35 @@ logic [31:0] wb_data;            // Data to write to a register
 logic wb_wr;                     // 1 = write, 0 = don't write
 
 
+// ----------------- General Checks -----------------
+// PC control
+check_pc_inc_val:
+        assert property (@(posedge clk) pc_inc_val == pc + 32'h4);
+check_pc_next_val: 
+        assert property (@(posedge clk) 
+        (!rst && (
+            (hd_if_pc_wr && ($prev(pc_next_val) == pc)) ||
+            (!hd_if_pc_wr && ($prev(pc) == pc))
+            )
+        ) ||
+        (rst && pc == 0));
+check_pc_id_val: 
+        assert property (@(posedge clk) if_id_pipe_pc == $prev(pc));
+// assert (pc == i_addr)
+//         else $error("Instruction memory address incorrect");
+
+// Pipeline stages
+check_ir_idex_rt: 
+        assert property (@(posedge clk) $past(ir_rt) == id_ex_pipe_rt);
+check_ir_idex_rs: 
+        assert property (@(posedge clk) $past(ir_rs) == id_ex_pipe_rs);
+check_ir_idex_rd:
+        assert property (@(posedge clk) $past(ir_rd) == id_ex_pipe_rd);
+check_idex_exmem_rd: 
+        assert property (@(posedge clk) $past(id_ex_pipe_rd) == ex_mem_pipe_wb_reg);
+check_exmem_memwb_rd: 
+        assert property (@(posedge clk) $past(ex_mem_pipe_wb_reg) == mem_wb_pipe_wb_reg);
+
 // ----------------- IF STAGE -----------------
 // PC
 always_ff @(negedge clk) begin
