@@ -42,14 +42,14 @@ zmips_mux432 MUX_D1(
     .y(data_1)
 );
 
-always_ff @(negedge clk) begin
+always_ff @(posedge clk) begin
     // If writing and one of the first 30 regs, then write
     if (wr && ((&wr_addr[4:1]) == 1'b0)) begin
         regfile[wr_addr] <= wr_data;
     end
 end
 
-always_ff @(negedge clk) begin
+always_ff @(posedge clk) begin
     if (pc_wr) begin
         pc_reg <= pc_val;
     end
