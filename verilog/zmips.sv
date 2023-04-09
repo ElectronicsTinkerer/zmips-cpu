@@ -135,27 +135,42 @@ logic fw_mem_ldsw;               // Mux select for consecutive mem load/store op
 
 
 // Signals for IF STAGE
+// checked
 logic [31:0] pc_next_val;        // To be fed into the PC on the next NEGEDGE of CLK
+// checked
 logic [31:0] pc_inc_val;         // Selected if the next address is to be fetched
+// checked
 logic pc_src_sel;                // Low = INC PC, High = result from ID stage
 
+// checked
 logic [31:0] pc;                 // Program Counter
+// checked
 logic [31:0] if_id_pipe_pc;      // Pipelined PC
+// checked
 logic [31:0] if_id_pipe_ir;      // Result from reading instruction memory
 
 // Signals for ID STAGE
 logic [31:0] d_reg_0, d_reg_1;
+// checked
 logic [31:0] ir_immd_se;         // Sign extension
+// checked
 logic [31:0] ir_immd_se_sh;      // Shifted sign extend (left, 2)
+// checked
 logic [31:0] pc_id_temp_branch_val;   // Value of the PC if a branch were to be taken
+// checked
 logic [31:0] pc_id_branch_val;   // Value to assign to PC after taking into account whether to take the branch
 logic [31:0] pc_id_val;          // For when the ID stage must modify the PC (branch, jump)
+// checked
 logic [31:0] ir_addr_sh;         // Shifted immediate address for Jump & Link instruction
 logic [31:0] id_pc_alu_mem;      // Muxed bus from MEM ALU out or memory read
 logic [31:0] id_pc_reg_val;      // Value of the register to load the PC with
+// checked
 logic id_rfmt;                   // High when instruction is R-format
+// checked
 logic id_imfmt;                  // High when instruction is I-format SE IMMD load
+// checked
 logic id_ifmt;                   // High when instruction is I-format
+// checked
 logic id_jfmt;                   // High when instruction is J-format
 logic id_do_branch;              // High when a branch should be taken
 logic id_zf;                     // Z flag for branch logic (forwarded)
@@ -164,16 +179,27 @@ logic id_nf;                     // N flag for branch logic (forwarded)
 logic id_r_jump;                 // High when bits 5..0 are all high and R-format (00)
 logic id_immd_load;              // High when instruction is an immediate se load
 
+// checked
 logic [5:0] ir_r_op;             // Opcode fields
+// checked
 logic [3:0] ir_i_op;
+// checked
 logic [1:0] ir_j_op;
+// checked
 logic [4:0] ir_rs;
+// checked
 logic [4:0] ir_rt;
+// checked
 logic [4:0] ir_rd;
+// checked
 logic [25:0] ir_immd;
+// checked
 logic [29:0] ir_addr;
+// checked
 logic [1:0] ir_cc;
+// checked
 logic [5:0] ir_funct;
+// checked
 logic [4:0] ir_shamt;
 
 logic [31:0] id_ex_pipe_reg_0, id_ex_pipe_reg_1;  // Outputs from reg file
@@ -232,73 +258,7 @@ logic wb_wr;                     // 1 = write, 0 = don't write
 
 
 // ----------------- General Checks -----------------
-// PC control
-check_pc_inc_val:
-        assert property (@(posedge clk) pc_inc_val === pc + 32'h4);
-check_next_pc: 
-        assert property (@(posedge clk) 
-        (!rst && (
-            (hd_if_pc_wr && ($past(pc_next_val) === pc)) ||
-            (!hd_if_pc_wr && ($past(pc) === pc))
-            )
-        ) ||
-        (rst && pc === 0));
-check_pc_id_next_val: 
-        assert property (@(posedge clk) if_id_pipe_pc === $past(pc_next_val));
-check_i_addr_pc: assert #0 (pc === i_addr)
-        else $error("Instruction memory address incorrect");
-check_pc_next_val:
-        assert property (@(posedge clk) 
-        (!pc_src_sel && pc_next_val === pc_inc_val) ||
-        (pc_src_sel && pc_next_val === pc_id_val));
-
-// Non-PC IF stage
-check_if_ir:
-        assert property (@(posedge clk) 
-        (!hd_if_id_flush && if_id_pipe_ir === $past(i_data)) ||
-        (hd_if_id_flush && if_id_pipe_ir === '0)); // Flow control-related stall
-
-// ID stage
-// Instruction field breakouts
-check_ir_immd:
-        assert #0 (ir_immd === if_id_pipe_ir[25:0]);
-check_sign_extend:
-        assert #0 (ir_immd_se === {{6{if_id_pipe_ir[25]}}, if_id_pipe_ir[25:0]});
-check_left_shift_2:
-        assert #0 (ir_immd_se_sh === {{{4{if_id_pipe_ir[25]}}, if_id_pipe_ir[25:0]}, 2'b0});
-check_ir_rs:
-        assert #0 (ir_rs === if_id_pipe_ir[25:21]);
-check_ir_rt:
-        assert #0 (ir_rt === if_id_pipe_ir[20:16]);
-check_ir_rd:
-        assert #0 (ir_rd === if_id_pipe_ir[15:11]);
-check_ir_shamt:
-        assert #0 (ir_shamt === if_id_pipe_ir[10:6]);
-check_ir_funct:
-        assert #0 (ir_funct === if_id_pipe_ir[5:0]);
-check_ir_addr:
-        assert #0 (ir_addr === if_id_pipe_ir[29:0]);
-check_ir_cc:
-        assert #0 (ir_cc === if_id_pipe_ir[27:26]);
-check_ir_r_op:
-        assert #0 (ir_r_op === if_id_pipe_ir[31:26]);
-check_ir_i_op:
-        assert #0 (ir_i_op === if_id_pipe_ir[31:28]);
-check_ir_j_op:
-        assert #0 (ir_j_op === if_id_pipe_ir[31:30]);
-
-
-// Pipeline stages
-check_ir_idex_rt: 
-        assert property (@(posedge clk) $past(ir_rt) === id_ex_pipe_rt);
-check_ir_idex_rs: 
-        assert property (@(posedge clk) $past(ir_rs) === id_ex_pipe_rs);
-check_ir_idex_rd:
-        assert property (@(posedge clk) $past(ir_rd) === id_ex_pipe_rd);
-check_idex_exmem_rd: 
-        assert property (@(posedge clk) $past(id_ex_pipe_rd) === ex_mem_pipe_wb_reg);
-check_exmem_memwb_rd: 
-        assert property (@(posedge clk) $past(ex_mem_pipe_wb_reg) === mem_wb_pipe_wb_reg);
+// `include "assert_zmips.sva"
 
 // ----------------- IF STAGE -----------------
 // PC

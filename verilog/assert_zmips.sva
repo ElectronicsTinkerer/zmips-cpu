@@ -1,0 +1,86 @@
+// PC control
+check_pc_inc_val:
+        assert property (@(posedge clk) pc_inc_val === pc + 32'h4);
+check_next_pc: 
+        assert property (@(posedge clk) 
+        (!rst && (
+            (hd_if_pc_wr && ($past(pc_next_val) === pc)) ||
+            (!hd_if_pc_wr && ($past(pc) === pc))
+            )
+        ) ||
+        (rst && pc === 0));
+check_pd_next_val_xxx:
+        assert #0 (pc_next_val !== 'x);
+check_pc_id_next_val: 
+        assert property (@(posedge clk) if_id_pipe_pc === $past(pc_next_val));
+check_i_addr_pc: assert #0 (pc === i_addr)
+        else $error("Instruction memory address incorrect");
+check_pc_next_val:
+        assert property (@(posedge clk) 
+        (!pc_src_sel && pc_next_val === pc_inc_val) ||
+        (pc_src_sel && pc_next_val === pc_id_val));
+
+// Non-PC IF stage
+check_if_ir:
+        assert property (@(posedge clk) 
+        (!hd_if_id_flush && if_id_pipe_ir === $past(i_data)) ||
+        (hd_if_id_flush && if_id_pipe_ir === '0)); // Flow control-related stall
+
+// ID stage
+// Instruction field breakouts
+check_ir_immd:
+        assert #0 (ir_immd === if_id_pipe_ir[25:0]);
+check_sign_extend:
+        assert #0 (ir_immd_se === {{6{if_id_pipe_ir[25]}}, if_id_pipe_ir[25:0]});
+check_left_shift_2:
+        assert #0 (ir_immd_se_sh === {{{4{if_id_pipe_ir[25]}}, if_id_pipe_ir[25:0]}, 2'b0});
+check_ir_rs:
+        assert #0 (ir_rs === if_id_pipe_ir[25:21]);
+check_ir_rt:
+        assert #0 (ir_rt === if_id_pipe_ir[20:16]);
+check_ir_rd:
+        assert #0 (ir_rd === if_id_pipe_ir[15:11]);
+check_ir_shamt:
+        assert #0 (ir_shamt === if_id_pipe_ir[10:6]);
+check_ir_funct:
+        assert #0 (ir_funct === if_id_pipe_ir[5:0]);
+check_ir_addr:
+        assert #0 (ir_addr === if_id_pipe_ir[29:0]);
+check_ir_cc:
+        assert #0 (ir_cc === if_id_pipe_ir[27:26]);
+check_ir_r_op:
+        assert #0 (ir_r_op === if_id_pipe_ir[31:26]);
+check_ir_i_op:
+        assert #0 (ir_i_op === if_id_pipe_ir[31:28]);
+check_ir_j_op:
+        assert #0 (ir_j_op === if_id_pipe_ir[31:30]);
+check_ir_addr_sh:
+        assert #0 (ir_addr_sh === {if_id_pipe_ir[29:0], 2'b0});
+check_id_rfmt:
+        assert #0 (id_rfmt === (if_id_pipe_ir[31:30] === 2'b0) ? 1'b1 : 1'b0);
+check_id_imfmt:
+        assert #0 (id_imfmt === (if_id_pipe_ir[31:30] === 2'b01) ? 1'b1 : 1'b0);
+check_id_ifmt:
+        assert #0 (id_ifmt === (if_id_pipe_ir[31:30] === 2'b10) ? 1'b1 : 1'b0);
+check_id_jfmt:
+        assert #0 (id_jfmt === (if_id_pipe_ir[31:30] === 2'b11) ? 1'b1 : 1'b0);
+check_pc_id_temp_branch_val:
+        assert #0 (pc_id_temp_branch_val === ir_immd_se_sh + if_id_pipe_pc);
+check_pc_id_branch_val:
+        assert #0 (pc_id_branch_val === (id_do_branch === 1'b1 ? pc_id_temp_branch_val : if_id_pipe_pc));
+// check_pc_id_val:
+//         assert #0 (pc_id_val === ((if_id_pipe_ir[31:30] === 2'b00) ? pc_id_temp_branch :
+//                                    ((if_id_pipe_ir[31:30] === 2'b10) ? pc_id_)))
+
+
+// Pipeline stages
+check_ir_idex_rt: 
+        assert property (@(posedge clk) $past(ir_rt) === id_ex_pipe_rt);
+check_ir_idex_rs: 
+        assert property (@(posedge clk) $past(ir_rs) === id_ex_pipe_rs);
+check_ir_idex_rd:
+        assert property (@(posedge clk) $past(ir_rd) === id_ex_pipe_rd);
+check_idex_exmem_rd: 
+        assert property (@(posedge clk) $past(id_ex_pipe_rd) === ex_mem_pipe_wb_reg);
+check_exmem_memwb_rd: 
+        assert property (@(posedge clk) $past(ex_mem_pipe_wb_reg) === mem_wb_pipe_wb_reg);
